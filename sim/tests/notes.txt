@@ -1,0 +1,182 @@
+051960 sprite address gen:
+
+RAM A: ATTR6 zoom x
+RAM B: ATTR5 pos y
+RAM C: ATTR3 color
+RAM D: ATTR4 zoom y
+RAM E: ATTR2 code low
+RAM F: ATTR1 size and code high
+RAM G: ATTR7 pos x
+
+The sprite X position goes right from internal RAM G to
+the HP* outputs
+
+The sprite color bits go right from internal RAM C to
+the OC* outputs
+The OC* outputs are also used in ROM reading mode:
+REG3_D2 -> OC0
+REG3_D3 -> OC1
+REG3_D4 -> OC2
+REG3_D5 -> OC3
+REG3_D6 -> OC4
+REG3_D7 -> OC5
+REG4_D0 -> OC6
+REG4_D1 -> OC7
+
+One ROM read = 8-pixel row
+
+ATTR2_0 -> CA5
+ATTR2_2 -> CA7
+ATTR2_4 -> CA9
+ATTR2_6 -> CA11
+ATTR1_0 -> CA13
+ATTR1_1 -> CA14
+ATTR1_2 -> CA15
+ATTR1_3 -> CA16
+ATTR1_4 -> CA17
+
+Tile code masking according to sprite size:
+Size W   H CA:A98765 Tiles H64+ A    9    8    7    6    5
+000  16  16  ------- 1     0    ATTR ATTR ATTR ATTR ATTR ATTR
+001  32  16  ------x 2     0    ATTR ATTR ATTR ATTR ATTR CtX
+010  16  32  -----x- 2     0    ATTR ATTR ATTR ATTR CtY  ATTR
+011  32  32  -----xx 4     0    ATTR ATTR ATTR ATTR CtY  CtX
+100  64  32  ----xxx 8     1    ATTR ATTR ATTR CtX  CtY  CtX
+101  32  64  ---x-xx 8     0    ATTR ATTR CtY  ATTR CtY  CtX
+110  64  64  ---xxxx 16    1    ATTR ATTR CtY  CtX  CtY  CtX
+111  128 128 -xxxxxx 64    1    CtY  CtX  CtY  CtX  CtY  CtX
+
+
+16x16: -------
+0
+
+32x16: ------x
+0  1
+
+16x32: -----x-
+0
+2
+
+32x32: -----xx
+0  1
+2  3
+
+64x32: ----xxx
+0  1  4  5
+2  3  6  7
+
+32x64: ---x-xx
+0  1
+2  3
+8  9
+10 11
+
+64x64: ---xxxx
+0  1  4  5
+2  3  6  7
+8  9  12 13
+10 11 14 15
+
+
+SIZE0 H64+ CA5
+0     0    ATTR2_0
+0     1    CounterX1
+1     0    CounterX1
+1     1    CounterX1
+
+000   0	   ATTR2_0
+001   0    CounterX1
+010   0	   ATTR2_0
+011   0    CounterX1
+100   1	   CounterX1
+101   0    CounterX1
+110   1    CounterX1
+111   1    CounterX1
+
+
+SIZE0 H64+ CA7
+0     0    ATTR2_2
+0     1    CounterX2
+1     0    ATTR2_2
+1     1    CounterX2
+
+000   0	   ATTR2_2
+001   0    ATTR2_2
+010   0	   ATTR2_2
+011   0    ATTR2_2
+100   1	   CounterX2
+101   0    ATTR2_2
+110   1    CounterX2
+111   1    CounterX2
+
+
+SIZE0 H64+ CA9
+0     0    ATTR2_4
+0     1    ATTR2_4
+1     0    ATTR2_4
+1     1    CounterX3
+
+000   0	   ATTR2_4
+001   0    ATTR2_4
+010   0	   ATTR2_4
+011   0    ATTR2_4
+100   1	   ATTR2_4
+101   0    ATTR2_4
+110   1    ATTR2_4
+111   1    CounterX3
+
+x 8px block counter (AB233) mapping should be:
+CounterX0 -> BlockX (CA3)
+CounterX1 -> Code0
+CounterX2 -> Code2
+CounterX3 -> Code4
+
+y 8px block counter mapping should be:
+CounterY0 -> BlockY
+CounterY1 -> Code1
+CounterY2 -> Code3
+CounterY3 -> Code5
+
+AC232 mux for x sprite block counter reset:
+Size  H64+ Output when
+000   0	   AB233=1
+001   0    AB233=3
+010   0	   AB233=1
+011   0    AB233=3
+100   1	   AB233=7
+101   0    AB233=3
+110   1    AB233=7
+111   1    AB233=15
+
+CA0: 8-pixel row in 8x8 block
+CA1: 8-pixel row in 8x8 block
+CA2: 8-pixel row in 8x8 block
+CA3: Block X
+CA4: Block Y
+CA5... : Tile code
+
+Y zoom stuff with cascaded adders:
+
+0,M0,ZOOM[5:2]*M0 + M1,ZOOM[5:1]*M1 + ZOOM[0]*M1*ZOOM[1]*M0
+PREV[6:1] + M2,ZOOM[5:1]*M2 + ZOOM[0]*M2*PREV[0]
+PREV[6:1] + M3,ZOOM[5:1]*M3 + ZOOM[0]*M3*PREV[0]
+PREV[6:1] + M4,ZOOM[5:1]*M4 + ZOOM[0]*M4*PREV[0]
+PREV[6:1] + M5,ZOOM[5:1]*M5 + ZOOM[0]*M5*PREV[0]
+PREV[6:1] + M6,ZOOM[5:1]*M6 + ZOOM[0]*M6*PREV[0]
+PREV[6:1] + M7,ZOOM[5:1]*M7 + ZOOM[0]*M7*PREV[0]
+
+Output: PREV[6:0],AJ141,AL147
+
+
+Normal test net states:
+TEST_DB0: High
+TEST_DB1: Low
+TEST_DB2: Low
+TEST_AB0: Low
+TEST_AB1: Low
+TEST_AB2: Low
+TEST_AB3: Low
+TEST_AB4: Low
+TEST_AB5: Low
+TEST_AB6: Low
+TEST_AB7: High

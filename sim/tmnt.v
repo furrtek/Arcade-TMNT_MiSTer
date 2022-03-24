@@ -10,88 +10,188 @@
 
 module top (
 	input reset,
-	input main_clk,
+	input clk_main,
 
-	input P1_up,
-	input P1_down,
-	input P1_left,
-	input P1_right,
-	input P1_jump,
-	input P1_attack,
-	input P1_start,
-	input P1_coin,
+	input [3:0] P_up,
+	input [3:0] P_down,
+	input [3:0] P_left,
+	input [3:0] P_right,
+	input [3:0] P_jump,
+	input [3:0] P_attack1,
+	input [3:0] P_attack2,
+	input [3:0] P_attack3,
+	input [3:0] P_start,
+	input [3:0] P_coin,
 	
-	input [1:0] service,
+	input [3:0] service,
 	
 	output [1:0] coin_counter,
-	
+
 	output [5:0] video_r,
 	output [5:0] video_g,
 	output [5:0] video_b,
 	output video_sync,
-	
+
 	input [7:0] dipswitch1,
 	input [7:0] dipswitch2,
-	input [3:0] dipswitch3,
+	input [3:0] dipswitch3
 );
 
-reg [5:0] clk_640k_div;
-reg [18:0] theme_playback_addr;
-reg theme_playback_en;
+wire [23:1] m68k_addr;
+reg [15:0] m68k_din;
+wire [15:0] m68k_dout;
+wire [15:0] m68k_rom_dout;
+wire [15:0] m68k_ram_dout;
 
-// TMNT theme playback system
-always @(posedge clk_640k or posedge reset) begin
+wire [19:0] spr_rom_addr;
+wire [31:0] spr_rom_dout;
+
+wire [18:0] tiles_rom_addr;
+wire [31:0] tiles_rom_dout;
+
+wire [7:0] pal_dout;
+
+wire [10:0] spr_ram_addr;
+wire [7:0] spr_ram_din;
+wire [7:0] spr_ram_dout;
+
+wire [12:0] tiles_ram_addr;
+wire [15:0] tiles_ram_din;
+wire [15:0] tiles_ram_dout;
+
+// ../../sim/roms/
+rom_sim #(16, 18, "rom_68k_16.txt") ROM_68K(m68k_addr[18:1], m68k_rom_dout);		// 256k * 16
+rom_sim #(32, 20, "rom_sprites_32.txt") ROM_SPRITES(spr_rom_addr, spr_rom_dout);	// 512k * 32
+rom_sim #(32, 19, "rom_tiles_32.txt") ROM_TILES(tiles_rom_addr, tiles_rom_dout);	// 256k * 32
+
+reg PRI, PRI2;
+wire [11:0] VA;
+wire [11:0] VB;
+wire [7:0] FX;
+wire NVA, NVB, NFX, NOBJ, SHA;
+
+wire [7:0] PROM_addr;
+assign PROM_addr = {PRI2, PRI, VB[7], SHA, NFX, NOBJ, NVB, NVA};	// 2C6 = VB[7] ?
+wire [3:0] PROM_dout;
+rom_sim #(8, 8, "prom_prio_8.txt") ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8
+//rom_prio ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8
+
+wire SHADOW = PROM_dout[2];	// PROM_dout[3] unused
+
+assign SHA = 0;	// TODO 051937 SHAD
+assign NOBJ = 0;	// TODO 051937 NC00
+wire [11:0] OB;
+assign OB = 12'd0;	// TODO 051937
+
+ram_sim #(16, 13, "") RAM_68K(m68k_addr[13:1], m68k_ram_we, 1'b1, m68k_dout, m68k_ram_dout);			// 8k * 16
+ram_sim #(8, 11, "") RAM_SPRITES(spr_ram_addr, spr_ram_we, 1'b1, spr_ram_din, spr_ram_dout);			// 2k * 8
+ram_sim #(16, 13, "") RAM_TILES(tiles_ram_addr, tiles_ram_we, 1'b1, tiles_ram_din, tiles_ram_dout);	// 8k * 16
+
+assign OIPL = 1'b1;	// TODO
+
+cpu_68k CPU68K(
+	.clk(clk_main),	// TODO
+	.nRESET(~reset),
+	.IPL2(OIPL), .IPL1(1'b1), .IPL0(OIPL),
+	.nDTACK(1'b0),	// TODO nDTACK
+	.M68K_ADDR(m68k_addr),
+	.FX68K_DATAIN(m68k_din),
+	.FX68K_DATAOUT(m68k_dout),
+	.nLDS(nLDS), .nUDS(nUDS),
+	.nAS(nAS),
+	.M68K_RW(m68k_rw),
+	.FC2(FC2), .FC1(FC1), .FC0(FC0),
+	.nBG(nBG),
+	.nBR(1'b1),
+	.nBGACK(1'b1)
+);
+
+assign NLWR = nLDS | m68k_rw;
+assign NUWR = nUDS | m68k_rw;
+
+k051962 k051962_1(
+	.nRES(~reset),
+	.clk_24M(clk_main),
+	.clk_6M(V6M),
+	
+	.DSA(VA),
+	.DSB(VB),
+	.DFI(FX),
+	
+	.NSAC(NVA),
+	.NSBC(NVB),
+	.NFIC(NFX)
+);
+
+reg [7:0] U47;	// CPU LS138
+always @(*) begin
+	case({nAS, m68k_addr[20], m68k_addr[19:17]})
+		5'b0_0000: U47 <= 8'b11111110;
+		5'b0_0001: U47 <= 8'b11111101;
+		5'b0_0010: U47 <= 8'b11111011;
+		5'b0_0011: U47 <= 8'b11110111;
+		5'b0_0100: U47 <= 8'b11101111;
+		5'b0_0101: U47 <= 8'b11011111;
+		5'b0_0110: U47 <= 8'b10111111;
+		5'b0_0111: U47 <= 8'b01111111;
+		default: U47 <= 8'b11111111;
+	endcase
+end
+
+assign nROMCS = &{U47[1:0]};	// Bottom ROMs
+assign nW1CS = U47[2];			// Top ROMs
+assign nW2CS = U47[3];			// Work RAM
+assign COLCS = U47[4];			// Palette RAM
+assign SYSWR = U47[6];			// ???
+
+reg [7:0] U45;	// CPU LS138
+always @(*) begin
+	case({U47[5], m68k_addr[16], m68k_rw, m68k_addr[4:3]})
+		5'b0_0000: U45 <= 8'b11111110;
+		5'b0_0001: U45 <= 8'b11111101;
+		5'b0_0010: U45 <= 8'b11111011;
+		5'b0_0011: U45 <= 8'b11110111;
+		5'b0_0100: U45 <= 8'b11101111;
+		5'b0_0101: U45 <= 8'b11011111;
+		5'b0_0110: U45 <= 8'b10111111;
+		5'b0_0111: U45 <= 8'b01111111;
+		default: U45 <= 8'b11111111;
+	endcase
+end
+
+assign IOWR = U45[0];	// Coin lockouts ?
+assign SNDDT = U45[1];	// Sound code
+assign AFR = U45[2];		// Watchdog
+
+assign SHOOT = U45[4];	// Read inputs
+assign DIP = U45[6];
+assign DIP3 = U45[7];
+
+reg RMRD;
+reg INT16EN;
+reg SNDON;
+reg OUT2;
+reg OUT1;
+always @(posedge IOWR or posedge reset) begin
 	if (reset) begin
-		clk_640k_div <= 6'd0;
-		theme_playback_en <= 0;
-		theme_playback_addr <= 19'd0;
+		{RMRD, INT16EN, SNDON, OUT2, OUT1} <= 5'b0_0000;
 	end else begin
-		clk_640k_div <= clk_640k_div + 1'b1;
-		// U119_Q: clk_640k_div[0];
-		
-		if (theme_playback_en) begin
-			theme_playback_addr <= 19'd0;
-		end else begin
-			if ((clk_640k_div[4:0] == 5'd16) & !theme_playback_addr[18])
-        		theme_playback_addr <= theme_playback_addr + 1'b1;
-		end
+		RMRD <= m68k_dout[7];		// GFX ROM read
+		INT16EN <= m68k_dout[5];
+		SNDON <= m68k_dout[3];
+		OUT2 <= m68k_dout[1];
+		OUT1 <= m68k_dout[0];
 	end
 end
 
-// Z80 has 32kB ROM at 0000~7FFF
-// Z80_A[15:12] Zone
-// 1000			work RAM	8000~8FFF (mirrored x2)
-// 1001			SRES    	9000~9FFF
-// 1010			Comm reg	A000~AFFF
-// 1011			DACS    	B000~BFFF (007232)
-// 1100			YM2151  	C000~CFFF
-// 1101			VDIN    	D000~DFFF
-// 1110			VST     	E000~EFFF
-// 1111			BSY    		F000~FFFF
-// Address decoding only enabled when Z80_RFSH is high !
-
-// The 007232 SLEV ("Set Level") output is used to latch Z80_DOUT to set the analog output levels (4 bits per channel)
-
-assign Z80_nNMI = 1'b1;		// Hardwired
-assign Z80_nBUSREQ = 1'b1;	// Hardwired
-
-reg [7:0] snd_code;
-reg [7:0] Z80_DIN;
-wire [7:0] Z80_DOUT;
-wire [15:0] M68K_DIN;
-wire [15:0] M68K_DOUT;
-
-// On the real PCB, nothing prevents the Z80 from fighting against the sound code reg U84 if it decides to write to it
-// Hopefully this never actually happens
-always @(*) begin
-	// Check Z80_nMREQ ?
-	casez(Z80_A[15:12])
-		4'b0zzz: Z80_DIN <= Z80_ROM_dout;
-		4'h1000: Z80_DIN <= Z80_WRAM_dout;
-		4'h1010: Z80_DIN <= snd_code;
-		4'h1100: Z80_DIN <= YM2151_dout;
-		default: Z80_DIN <= 8'bzzzz_zzzz;	// DEBUG
-	endcase
+always @(posedge SYSWR or posedge reset) begin
+	if (reset) begin
+		PRI <= 0;
+		PRI2 <= 0;
+	end else begin
+		PRI <= m68k_dout[2];
+		PRI2 <= m68k_dout[3];
+	end
 end
 
 // DIP3 == 0: M68K_DIN[3:0] <= dipswitch3;
@@ -99,10 +199,33 @@ end
 // DIP == 0, A[2:1] == 2: M68K_DIN[7:0] <= INPUTS_4P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
 // DIP == 0, A[2:1] == 1: M68K_DIN[7:0] <= dipswitch2;
 // DIP == 0, A[2:1] == 0: M68K_DIN[7:0] <= dipswitch1;
-// HOOT == 0, A[2:1] == 3: M68K_DIN[7:0] <= INPUTS_3P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
-// HOOT == 0, A[2:1] == 2: M68K_DIN[7:0] <= INPUTS_2P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
-// HOOT == 0, A[2:1] == 1: M68K_DIN[7:0] <= INPUTS_1P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
-// HOOT == 0, A[2:1] == 0: M68K_DIN[7:0] <= Service4, Service3, Service2, Service1, Coin4, Coin3, Coin2, Coin1
+// SHOOT == 0, A[2:1] == 3: M68K_DIN[7:0] <= INPUTS_3P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
+// SHOOT == 0, A[2:1] == 2: M68K_DIN[7:0] <= INPUTS_2P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
+// SHOOT == 0, A[2:1] == 1: M68K_DIN[7:0] <= INPUTS_1P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
+// SHOOT == 0, A[2:1] == 0: M68K_DIN[7:0] <= Service4, Service3, Service2, Service1, Coin4, Coin3, Coin2, Coin1
+
+always @(*) begin
+	casez({COLCS | ~m68k_rw, nW2CS | ~m68k_rw, nW1CS, nROMCS, DIP3, DIP, SHOOT, m68k_addr[2:1]})
+		9'b1_110z_zzzz: m68k_din <= m68k_rom_dout;	//m68k_rom_bot_dout;
+		9'b1_101z_zzzz: m68k_din <= m68k_rom_dout;	//m68k_rom_top_dout;
+		9'b1_011z_zzzz: m68k_din <= m68k_ram_dout;
+		9'b0_111z_zzzz: m68k_din <= {8'h00, pal_dout};
+		
+		9'b1_1110_zzzz: m68k_din[3:0] <= dipswitch3;
+
+		9'b1_1111_0100: m68k_din[7:0] <= 8'hFF;
+		9'b1_1111_0101: m68k_din[7:0] <= {P_start[3], P_attack3[3], P_attack2[3], P_attack1[3], P_down[3], P_up[3], P_right[3], P_left[3]};
+		9'b1_1111_0110: m68k_din[7:0] <= dipswitch2;
+		9'b1_1111_0111: m68k_din[7:0] <= dipswitch1;
+
+		9'b1_1111_1000: m68k_din[7:0] <= {P_start[2], P_attack3[2], P_attack2[2], P_attack1[2], P_down[2], P_up[2], P_right[2], P_left[2]};
+		9'b1_1111_1001: m68k_din[7:0] <= {P_start[1], P_attack3[1], P_attack2[1], P_attack1[1], P_down[1], P_up[1], P_right[1], P_left[1]};
+		9'b1_1111_1010: m68k_din[7:0] <= {P_start[0], P_attack3[0], P_attack2[0], P_attack1[0], P_down[0], P_up[0], P_right[0], P_left[0]};
+		9'b1_1111_1011: m68k_din[7:0] <= {service, P_coin};
+
+		default: m68k_din[15:0] <= 16'h0000;	//m68k_din[15:0] <= 16'bzzzzzzzz_zzzzzzzz;
+	endcase
+end
 
 // SYSWR: PRI <= M68K_DOUT[2];
 // SYSWR: PRI2 <= M68K_DOUT[3];
@@ -121,22 +244,42 @@ end
 // Output of palette RAM also latched by V6M -> 5 bits + 1 common -> DACs
 // Also goes into 245's for CPU access (lower byte only)
 
-always @(posedge ???) begin
-	// Z80 IRQ
-	if (reset | ~Z80_nIORQ)
-		Z80_nINT <= 1;	// Clear IRQ on any Z80 access
-	else if ({SNDON_prev, SNDON} == 2'b01)
-		Z80_nINT <= 0;	// Trigger IRQ on SNDON rising edge
+wire [15:1] AB = m68k_addr[15:1];	// Just 2x LS245 buffers
 
-	SNDON_prev <= SNDON;
+// 007644 x2
+// TODO
 
-	// Z80 comm reg
-	if ({SNDDT_prev, SNDDT} == 2'b01)
-		snd_code <= M68K_DOUT[7:0];	// Store data on SNDDT rising edge
+reg [9:0] CD;
+wire [5:0] RED_OUT;
+wire [5:0] GREEN_OUT;
+wire [5:0] BLUE_OUT;
 
-	SNDDT_prev <= SNDDT;
-	
+// Video plane mixing
+// 4x LS153
 
+always @(*) begin
+	case(PROM_dout[1:0])
+		2'b00: CD <= {2'b10, 1'b0, VA[7:5], VA[3:0]};	// VA[4] unused ?
+		2'b01: CD <= {2'b10, 1'b1, VB[7:5], VB[3:0]};	// VB[4] unused ?
+		2'b10: CD <= {2'b01, OB[7:0]};
+		2'b11: CD <= {2'b00, 1'b0, FX[7:5], FX[3:0]};	// FX[4] unused ?
+	endcase
 end
+
+TMNTColor color(
+	.V6M(V6M),
+	.AB(AB[12:1]),
+	.CD(CD),
+	.SHADOW(SHADOW),
+	.CPU_DIN(m68k_dout[7:0]),
+	.CPU_DOUT(pal_dout),
+	.NCBLK(NCBLK),
+	.COLCS(COLCS),
+	.NLWR(NLWR),
+	.NREAD(~m68k_rw),
+	.RED_OUT(RED_OUT),
+	.GREEN_OUT(GREEN_OUT),
+	.BLUE_OUT(BLUE_OUT)
+);
 
 endmodule
