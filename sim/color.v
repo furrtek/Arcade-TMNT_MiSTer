@@ -14,6 +14,12 @@ module TMNTColor(
 	output [5:0] BLUE_OUT
 );
 
+	// Color data CD[9:0], NCBLK and SHADOW latched by V6M
+	// Goes into mux for CPU palette RAM access, select by COLCS
+	// Output of mux used as address for 2* 2kB palette RAM
+	// Output of palette RAM also latched by V6M -> 5 bits + 1 common -> DACs
+	// Also goes into 245's for CPU access (lower byte only)
+
 	reg [12:0] C_REG;
 	wire [10:0] CR;
 	wire [7:0] RAM_DOUT_LOW;

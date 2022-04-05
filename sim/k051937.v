@@ -5,7 +5,7 @@
 `default_nettype wire
 
 module k051937 (
-	input reset,
+	input nRES,
 	input clk_24M,
 
 	output P1H,
@@ -38,7 +38,9 @@ module k051937 (
 	input [7:0] OC,
 	input [8:0] HP,
 	
-	input CARY, LACH, HEND, OREG, OHF
+	input CARY, LACH, HEND, OREG, OHF,
+	
+	output DB_DIR
 );
 
 wire D94_XQ, AL126_XQ, F103_Q, AN106_Q, AL36, AV104;
@@ -71,15 +73,15 @@ wire [11:0] RAM_B_DIN;
 wire [11:0] RAM_E_DIN;
 wire [11:0] RAM_F_DIN;
 
-ram #(8, 8, "") RAMA(RAM_ABCD_A, RAM_A_WE, RAM_ABCD_EN, RAM_A_DIN, RAM_A_DOUT);
-ram #(8, 8, "") RAMB(RAM_ABCD_A, RAM_B_WE, RAM_ABCD_EN, RAM_B_DIN, RAM_B_DOUT);
-ram #(1, 8, "") RAMC(RAM_ABCD_A, RAM_C_WE, RAM_ABCD_EN, RAM_C_DIN, RAM_C_DOUT);
-ram #(1, 8, "") RAMD(RAM_ABCD_A, RAM_D_WE, RAM_ABCD_EN, RAM_D_DIN, RAM_D_DOUT);
+ram_sim #(8, 8, "") RAMA(RAM_ABCD_A, RAM_A_WE, RAM_ABCD_EN, RAM_A_DIN, RAM_A_DOUT);
+ram_sim #(8, 8, "") RAMB(RAM_ABCD_A, RAM_B_WE, RAM_ABCD_EN, RAM_B_DIN, RAM_B_DOUT);
+ram_sim #(1, 8, "") RAMC(RAM_ABCD_A, RAM_C_WE, RAM_ABCD_EN, RAM_C_DIN, RAM_C_DOUT);
+ram_sim #(1, 8, "") RAMD(RAM_ABCD_A, RAM_D_WE, RAM_ABCD_EN, RAM_D_DIN, RAM_D_DOUT);
 
-ram #(8, 8, "") RAME(RAM_EFGH_A, RAM_E_WE, RAM_EFGH_EN, RAM_E_DIN, RAM_E_DOUT);
-ram #(8, 8, "") RAMF(RAM_EFGH_A, RAM_F_WE, RAM_EFGH_EN, RAM_F_DIN, RAM_F_DOUT);
-ram #(1, 8, "") RAMG(RAM_EFGH_A, RAM_G_WE, RAM_EFGH_EN, RAM_G_DIN, RAM_G_DOUT);
-ram #(1, 8, "") RAMH(RAM_EFGH_A, RAM_H_WE, RAM_EFGH_EN, RAM_H_DIN, RAM_H_DOUT);
+ram_sim #(8, 8, "") RAME(RAM_EFGH_A, RAM_E_WE, RAM_EFGH_EN, RAM_E_DIN, RAM_E_DOUT);
+ram_sim #(8, 8, "") RAMF(RAM_EFGH_A, RAM_F_WE, RAM_EFGH_EN, RAM_F_DIN, RAM_F_DOUT);
+ram_sim #(1, 8, "") RAMG(RAM_EFGH_A, RAM_G_WE, RAM_EFGH_EN, RAM_G_DIN, RAM_G_DOUT);
+ram_sim #(1, 8, "") RAMH(RAM_EFGH_A, RAM_H_WE, RAM_EFGH_EN, RAM_H_DIN, RAM_H_DOUT);
 
 // ROOT SHEET 1
 
@@ -115,7 +117,7 @@ assign HVOT = ~|{A89_CO, D94_XQ};
 
 
 wire [3:0] AP4_Q;
-C43 AP4(clk_12M, {3'b000, HP[0]}, AR44_Q, CARY, CARY, RES, AP4_Q, B90_CO);
+C43 AP4(clk_12M, {3'b000, HP[0]}, AR44_Q, CARY, CARY, nRES, AP4_Q, B90_CO);
 
 
 FDM AR33(clk_12M, CARY, AR33_Q);
@@ -137,11 +139,11 @@ assign AK13 = ~|{AV139, (AN106_Q & ~clk_6M)};
 assign RAM_EFGH_EN = AK13;	// Test mode ignored
 
 
-FDN AS44(clk_24M, AS44_XQ, RES, clk_12M, AS44_XQ);
+FDN AS44(clk_24M, AS44_XQ, nRES, clk_12M, AS44_XQ);
 FDN AS51(clk_24M, ~^{AS44_XQ, AS51_XQ}, RES_SYNC, clk_6M, AS51_XQ);
 
 
-FDE AS24(clk_24M, 1'b1, RES, RES_SYNC);
+FDE AS24(clk_24M, 1'b1, nRES, RES_SYNC);
 
 
 assign DB_OUT[0] = &{(CD0[0]|nROMRD[0]), (CD1[0]|nROMRD[1]), (CD2[0]|nROMRD[2]), (CD3[0]|nROMRD[3])};
@@ -478,7 +480,7 @@ FDN AT130(clk_24M, ~^{AT130_Q, ~&{~clk_6M, ~clk_12M}}, AT130_Q, AT130_XQ);
 FDE AS65(clk_24M, ~AT130_XQ, RES_SYNC, AS65_Q);
 FDO K89(clk_6M, AS65_Q, P1H);
 
-FDO AT106(clk_24M, AT130_XQ, RES, AT106_Q, AT106_XQ);
+FDO AT106(clk_24M, AT130_XQ, nRES, AT106_Q, AT106_XQ);
 FDO AT89(clk_24M, AT106_Q, RES_SYNC, AT89_Q);
 FDO AT96(clk_24M, AT189_Q, RES_SYNC, AT96_Q);
 
@@ -492,7 +494,7 @@ assign AAC98 = |{AV104, OREG, AB[1:0]};
 FDO AM90(AAC98, DB_IN[5], RES_SYNC, , nROMRDEN);
 
 
-assign AN116 = HVIN & RES;
+assign AN116 = HVIN & nRES;
 FDN AN130(clk_12M, ~^{AP134, AN130_XQ}, AN116, AN130_Q, AN130_XQ);
 FDN AN106(clk_12M, AN130_Q, AN116, AN106_Q, AN106_XQ);
 assign PAIR_OUT = AN106_Q;		// Must be delayed !
@@ -622,8 +624,8 @@ assign NC00 = ~&{PARITY_SEL_REG[3:0]};
 // DELAYS
 
 reg [5:0] HEND_DELAY;
-always @(posedge clk_12M or negedge RES) begin
-	if (!RES) begin
+always @(posedge clk_12M or negedge nRES) begin
+	if (!nRES) begin
 		HEND_DELAY <= 6'b000000;
 	end else begin
 		HEND_DELAY <= {HEND_DELAY[4:0], HEND};
@@ -636,7 +638,7 @@ assign AH64 = ~AR71;
 
 reg [7:0] HVIN_DELAY;
 always @(posedge clk_6M or negedge RES_SYNC) begin
-	if (!RES) begin
+	if (!RES_SYNC) begin
 		HVIN_DELAY <= 8'd0;
 	end else begin
 		HVIN_DELAY <= {HVIN_DELAY[6:0], HEND};
@@ -644,11 +646,11 @@ always @(posedge clk_6M or negedge RES_SYNC) begin
 end
 assign D94_XQ = ~HVIN_DELAY[7];
 
-FDN AN84(clk_6M, AN15_Q, RES, AN84_Q);
+FDN AN84(clk_6M, AN15_Q, nRES, AN84_Q);
 FDM AP52(~clk_12M, AN84_Q | clk_6M, AP52_Q);
 reg [4:0] AN15_DELAY;
-always @(posedge clk_12M or negedge RES) begin
-	if (!RES) begin
+always @(posedge clk_12M or negedge nRES) begin
+	if (!nRES) begin
 		AN15_DELAY <= 5'b00000;
 	end else begin
 		AN15_DELAY <= {AN15_DELAY[3:0], AP52_Q};
@@ -657,8 +659,8 @@ end
 assign AP134 = ~AN15_DELAY[4];
 
 reg [6:0] NEWLINE_DELAY;
-always @(posedge clk_6M or negedge RES) begin
-	if (!RES) begin
+always @(posedge clk_6M or negedge nRES) begin
+	if (!nRES) begin
 		NEWLINE_DELAY <= 7'b000000;
 	end else begin
 		NEWLINE_DELAY <= {NEWLINE_DELAY[5:0], nNEW_LINE};
@@ -666,12 +668,12 @@ always @(posedge clk_6M or negedge RES) begin
 end
 assign AN15_Q = NEWLINE_DELAY[6];
 
-FJD AR4(clk_12M, ~HEND, HEND & AR16_Q, AN15_Q & RES, , AR4_Q);
+FJD AR4(clk_12M, ~HEND, HEND & AR16_Q, AN15_Q & nRES, , AR4_Q);
 BD3 AS135(AR4_Q, AS135_OUT);
 
 reg [3:0] AS135_DELAY;
-always @(posedge clk_12M or negedge RES) begin
-	if (!RES) begin
+always @(posedge clk_12M or negedge nRES) begin
+	if (!nRES) begin
 		AS135_DELAY <= 4'b0000;
 	end else begin
 		AS135_DELAY <= {AS135_DELAY[2:0], AS135_OUT};
