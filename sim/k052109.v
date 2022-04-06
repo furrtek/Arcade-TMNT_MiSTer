@@ -81,10 +81,9 @@ wire [12:0] RA_MUX_C;
 // A2: 01 MAP_A[10:0]									Tilemap A
 // B1: 00 ROW[7:3] PXH[8:5] PXH4F PXH3F			Fixmap
 // B2: 10 MAP_B[10:0]									Tilemap B
-assign RA_MUX_A = PXH[1] ? {3'b110, Y80, Y91, Y78, Y129, SCROLL_RAM_A[5:0]} : {2'b01, MAP_A[10:0]};	// Swap ?
-assign RA_MUX_B = PXH[1] ? {2'b00, ROW[7:3], PXH[8:5], PXH4F, PXH3F} : {2'b10, MAP_B[10:0]};	// Swap ?
-assign RA_MUX_C = PXH[2] ? RA_MUX_A : RA_MUX_B;	// Swap ?
-
+assign RA_MUX_A = ~PXH[1] ? {3'b110, Y80, Y91, Y78, Y129, SCROLL_RAM_A[5:0]} : {2'b01, MAP_A[10:0]};
+assign RA_MUX_B = PXH[1] ? {2'b00, ROW[7:3], PXH[8:5], PXH4F, PXH3F} : {2'b10, MAP_B[10:0]};
+assign RA_MUX_C = ~PXH[2] ? RA_MUX_A : RA_MUX_B;
 assign RA = J79_Q ? RA_MUX_C : AB[12:0];
 
 wire CPU_VRAM_CS0, CPU_VRAM_CS1, J140_nQ, J151;
@@ -104,7 +103,7 @@ assign J151 = J140_Q & REG1C00[5];
 FDO H79(J121, ~PQ, J79_Q, H79_Q, );
 assign VDE = H79_Q | RMRD;
 
-FDN K141(clk_24M, K141_nQ, RES_SYNC, clk_12M, nclk_12M);
+FDN K141(clk_24M, nclk_12M, RES_SYNC, clk_12M, nclk_12M);
 FDN J109(clk_24M, nclk_12M ^ J114_nQ, RES_SYNC, J121, J114_nQ);	// 6M ?
 
 FDN J94(clk_24M, J94_Q ^ ~(nclk_12M & J114_nQ), RES_SYNC, J94_Q, J94_nQ);	// 3M ?
@@ -114,10 +113,9 @@ assign L82 = J94_Q;
 
 assign C92 = ~|{&{~CRCS, ~J94_nQ, PQ}, REG1C00[5]};
 
-
-FDO K148(clk_24M, K132_Q, RES_SYNC, K148_Q);
-FDE L120(clk_24M, K148_Q, RES_SYNC, PE);
-FDO K130(clk_24M, K148_Q, RES_SYNC, K130_Q);
+FDO K148(clk_24M, K123_Q, RES_SYNC, K148_Q, );
+FDE L120(clk_24M, K148_Q, RES_SYNC, PE, );
+FDO K130(clk_24M, K148_Q, RES_SYNC, K130_Q, );
 FDO K123(clk_24M, J94_nQ, RES_SYNC, K123_Q, K123_nQ);
 
 reg [3:0] K77_Q;
@@ -149,20 +147,20 @@ wire [2:0] VC_MUX_C;
 // B1: ROW_B[2] ROW_B[1] ROW_B[0]
 // B2: ROW_A[2] ROW_A[1] ROW_A[0]
 assign VC_MUX_A = {CC59_Q, CC68_Q, BB39_Q};	// Identical inputs
-assign VC_MUX_B = PXH[1] ? {ROW_B[2], ROW_B[1], ROW_B[0]} : {ROW_A[2], ROW_A[1], ROW_A[0]};	// Swap ?
-assign VC_MUX_C = PXH[2] ? VC_MUX_A : VC_MUX_B;	// Swap ?
+assign VC_MUX_B = PXH[1] ? {ROW_B[2:0]} : {ROW_A[2:0]};
+assign VC_MUX_C = ~PXH[2] ? VC_MUX_A : VC_MUX_B;
 
 // LTKs
 reg B111, C144, C119;
 reg C99, C93, C103;
 always @(*) begin
-	if (C92) begin	// Invert ?
+	if (!C92) begin
 		B111 <= AB[4];	// All 3 are delayed by BD3s
 		C144 <= AB[3];
 		C119 <= AB[2];
 	end
 	
-	if (J79_Q) begin	// Invert ?
+	if (!J79_Q) begin
 		C99 <= VC_MUX_C[2] ^ C81;
 		C93 <= VC_MUX_C[1] ^ C81;
 		C103 <= VC_MUX_C[0] ^ C81;
@@ -173,9 +171,9 @@ end
 reg [3:0] E120_P;
 reg [3:0] D81_P;
 always @(*) begin
-	if (C92) begin	// Invert ?
+	if (!C92) begin
 		E120_P <= AB[8:5];
-		D81_P <= AB[12:9];	// TODO: Check order
+		D81_P <= AB[12:9];
 	end
 end
 
@@ -193,7 +191,7 @@ assign VC = RMRD ? {D136_Q, D96_Q, C99, C93, C103} : {D81_P, E120_P, B111, C144,
 
 // CPU STUFF
 
-FDE N122(clk_24M, 1'b1, RES, RES_SYNC);
+FDE N122(clk_24M, 1'b1, nRES, RES_SYNC);
 
 // 8-frame delay for RES -> RST
 // Same in k051962 ?
@@ -239,11 +237,11 @@ reg [5:0] range;
 always @(*) begin
 	casez({E34, AB[15:13]})
 		4'b1000: range <= 6'b111110;	// 0000~1FFF
-		4'b1001: range <= 6'b111110;	// 2000~3FFF
-		4'b1010: range <= 6'b111110;	// 4000~5FFF
-		4'b1011: range <= 6'b111110;	// 6000~7FFF
-		4'b1100: range <= 6'b111110;	// 8000~9FFF
-		4'b1101: range <= 6'b111110;	// A000~BFFF
+		4'b1001: range <= 6'b111101;	// 2000~3FFF
+		4'b1010: range <= 6'b111011;	// 4000~5FFF
+		4'b1011: range <= 6'b110111;	// 6000~7FFF
+		4'b1100: range <= 6'b101111;	// 8000~9FFF
+		4'b1101: range <= 6'b011111;	// A000~BFFF
 		default: range <= 6'b111111;
 	endcase
 end
@@ -285,10 +283,10 @@ assign SCROLL_RAM_A = AA38 ? {ROW[4:3], ROW_A, PXH[3]} : FLIP_ADDER;
 // VRAM read by CPU - Upper/lower byte select
 reg [15:0] VD_LATCH;
 always @(*) begin
-	if (L82) // invert ?
+	if (!L82)
 		VD_LATCH <= VD_IN;
 end
-assign DB_OUT = L147 ? VD_LATCH[15:8] : VD_LATCH[7:0];	// Swap ?
+assign DB_OUT = L147 ? VD_LATCH[15:8] : VD_LATCH[7:0];
 
 
 // H/V COUNTERS
@@ -382,14 +380,14 @@ assign nREG_1E00_WR = ~&{AB[12:10], AB[9], ~AB[8:7], L15};
 
 FDN AA2(PXH[1], PXH[3], READ_SCROLL_A, AA2_Q);
 reg [7:0] VD_REG_AX;
-always @(posedge AA2_Q or negedge RES_SYNC) begin	// _Q or _nQ ? TODO: Check
+always @(posedge ~AA2_Q or negedge RES_SYNC) begin
 	if (!RES_SYNC)
 		VD_REG_AX <= 8'h00;
 	else
 		VD_REG_AX <= VD_IN[15:8];
 end
 
-FDE AA22(PXH[1], PXH[3], READ_SCROLL_A, AA22_Q);	// Does the same as AA2 ?
+FDE AA22(PXH[1], PXH[3], READ_SCROLL_A, AA22_Q);
 FDE AA41(AA22_Q, VD_IN[8], AA41_Q);
 
 wire [8:0] ADD_AX;
@@ -419,14 +417,14 @@ assign {MAP_A[10:6], ROW_A[2:0]} = ROW + VD_REG_AY;
 
 FDN BB2(PXH[1], PXH[3], READ_SCROLL_B, BB2_Q);
 reg [7:0] VD_REG_BX;
-always @(posedge BB2_Q or negedge RES_SYNC) begin	// _Q or _nQ ? TODO: Check
+always @(posedge ~BB2_Q or negedge RES_SYNC) begin
 	if (!RES_SYNC)
 		VD_REG_BX <= 8'h00;
 	else
 		VD_REG_BX <= VD_IN[7:0];
 end
 
-FDE BB9(PXH[1], PXH[3], READ_SCROLL_B, BB9_Q);	// Does the same as BB2 ?
+FDE BB9(PXH[1], PXH[3], READ_SCROLL_B, BB9_Q);
 FDE AA81(BB9_Q, VD_IN[0], AA81_Q);
 
 wire [8:0] ADD_BX;
@@ -468,7 +466,7 @@ assign COL[3:2] = RMRD ? REG1E00[3:2] : REG1C00[6] ? {F24, F41} : COL_MUX_A;
 
 assign CAB = F41 ? F24 ? {REG1F00[7], REG1F00[6]} : {REG1D80[7], REG1D80[6]} : F24 ? {REG1F00[3], REG1F00[2]} : {REG1D80[3], REG1D80[2]};
 
-assign BB33 = |{PXH[8:7], ~PXH[6:5], PXH4F, PXH[3]};	// TODO: Check PXH[3] or PXH3F ?
+assign BB33 = |{PXH[8:7], ~PXH[6:5], PXH4F, PXH[3]};
 
 assign X57 = ~|{ROW[7:0]};
 assign READ_SCROLL_A = &{~G4_Q, G29_Q[0], REG1C80[1] | X57, RES_SYNC};
@@ -486,12 +484,12 @@ assign F130 = &{J121, REG1C00[5], ~PXH[0]};
 	
 wire [1:0] COL_MUX_AA;
 wire [1:0] COL_MUX_AB;
-assign COL_MUX_AA = F130 ? {G136_Q[2], G136_Q[3]} : {H127_Q[2], H127_Q[3]}; // Swap ?
+assign COL_MUX_AA = ~F130 ? {G136_Q[2], G136_Q[3]} : {H127_Q[2], H127_Q[3]};
 assign COL_MUX_AB = {2{REG1E00[1:0]}};	// Identical inputs
-assign COL[1:0] = RMRD ? COL_MUX_AB : COL_MUX_AA;	// Swap ?
+assign COL[1:0] = ~RMRD ? COL_MUX_AA : COL_MUX_AB;
 	
-assign F24 = F130 ? H127_Q[0] : G136_Q[0]; // Swap ?
-assign F41 = F130 ? H127_Q[1] : G136_Q[1]; // Swap ?
+assign F24 = ~F130 ? H127_Q[0] : G136_Q[0];
+assign F41 = ~F130 ? H127_Q[1] : G136_Q[1];
 
 reg [3:0] G77_Q;
 always @(posedge ~PXH[0])
@@ -511,8 +509,8 @@ end
 
 wire [1:0] COL_MUX_BA;
 wire [1:0] COL_MUX_BB;
-assign COL_MUX_BA = F130 ? G77_Q : H92_Q; // Swap ?
+assign COL_MUX_BA = ~F130 ? G77_Q : H92_Q;
 assign COL_MUX_BB = F77_Q;	// Identical inputs
-assign COL[7:4] = RMRD ? COL_MUX_BB : COL_MUX_BA;	// Swap ?
+assign COL[7:4] = ~RMRD ? COL_MUX_BA : COL_MUX_BB;
 	
 endmodule

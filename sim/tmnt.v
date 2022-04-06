@@ -3,7 +3,9 @@
 `timescale 1ns/100ps
 
 // Current state: almost everything written except Z80 subsystem
-// Need to fix cell connections in k051960 (see modelsim output)
+// Need to fix cell connections in k051960 (see modelsim output) to get rid of warnings
+// Passes palette RAM test (check d7 ? selftest results are stored as a bitmap)
+// Stalls at start of tile RAM test because 052109 replies Z when CPU reads back first byte (@ 1674985ns in sim)
 
 // Clocks:
 // 640kHz for the TMNT theme playback
@@ -72,7 +74,7 @@ wire [7:0] DB_OUT_k051937;
 wire [11:0] OB;
 
 // ../../sim/roms/
-rom_sim #(16, 18, "rom_68k_16.txt") ROM_68K(m68k_addr[18:1], m68k_rom_dout);		// 256k * 16
+rom_sim #(16, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_68k_16.txt") ROM_68K(m68k_addr[18:1], m68k_rom_dout);		// 256k * 16
 
 reg PRI, PRI2;
 wire SHA, NFX, NOBJ, NVB, NVA;
@@ -80,15 +82,15 @@ wire ODTAC, VDTAC, nAS, NVBLK;
 
 wire [7:0] PROM_addr;
 assign PROM_addr = {PRI2, PRI, VB[7], SHA, NFX, NOBJ, NVB, NVA};	// 2C6 = VB[7] ?
-wire [3:0] PROM_dout;
-rom_sim #(8, 8, "prom_prio_8.txt") ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8
+wire [7:0] PROM_dout;
+rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/prom_prio_8.txt") ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8 (really 256 * 4)
 //rom_prio ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8
 
 wire SHADOW = PROM_dout[2];	// PROM_dout[3] unused
 
 ram_sim #(16, 13, "") RAM_68K(m68k_addr[13:1], m68k_ram_we, 1'b1, m68k_dout, m68k_ram_dout);			// 8k * 16
-ram_sim #(8, 11, "") RAM_SPRITES(spr_ram_addr, spr_ram_we, 1'b1, spr_ram_din, spr_ram_dout);			// 2k * 8
-ram_sim #(16, 13, "") RAM_TILES(tiles_ram_addr, tiles_ram_we, 1'b1, tiles_ram_din, tiles_ram_dout);	// 8k * 16
+//ram_sim #(8, 11, "") RAM_SPRITES(spr_ram_addr, spr_ram_we, 1'b1, spr_ram_din, spr_ram_dout);			// 2k * 8
+//ram_sim #(16, 13, "") RAM_TILES(tiles_ram_addr, tiles_ram_we, 1'b1, tiles_ram_din, tiles_ram_dout);	// 8k * 16
 
 assign nDTACK = &{ODTAC, VDTAC, nAS | m68k_addr[20]};
 
@@ -242,8 +244,8 @@ wire [15:1] AB = m68k_addr[15:1];	// Just 2x LS245 buffers
 
 assign NREAD = ~m68k_rw;
 assign OVCS = ~&{m68k_addr[20], ~nAS};
-assign OBJCS = (m68k_addr[18:17] == 2'd2) ? 1'b0 : 1'b1;
-assign VRAMCS = (m68k_addr[18:17] == 2'd0) ? 1'b0 : 1'b1;
+assign OBJCS = ((m68k_addr[18:17] == 2'd2) & ~OVCS) ? 1'b0 : 1'b1;
+assign VRAMCS = ((m68k_addr[18:17] == 2'd0) & ~OVCS) ? 1'b0 : 1'b1;
 assign OEQ = NREAD | OVCS;
 
 assign OEL = ({OVCS, m68k_rw, nUDS} == 3'b001) ? 1'b0 : 1'b1;

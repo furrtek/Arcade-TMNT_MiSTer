@@ -73,12 +73,14 @@ initial begin
 	LL: Player lives 00:5
 	DD: Difficulty 11:Easy
 	S: Attract sound 0:On
+	xxx: See mame tmnt.cpp, should be kept OFF
 	*/
 	dipswitch3 <= 4'b1111;
 	/*	Correct order ?
 	xMxF x:unused
 	F: Display flip
 	M: Test mode
+	xx: See mame tmnt.cpp, should be kept OFF
 	*/
 	P_up <= 4'b1111;
 	P_down <= 4'b1111;

@@ -84,11 +84,11 @@ module sprites(
 	ram_sim #(8, 10, "") RAM_SPR(OA, OWR, 1'b0, OD_out, OD_in);		// 1k * 8
 	
 	// ../../sim/roms/
-	rom_sim #(32, 20, "rom_sprites_32.txt") ROM_SPRITES(CA, spr_rom_dout);	// 512k * 32
+	rom_sim #(32, 20, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_sprites_32.txt") ROM_SPRITES(CA, spr_rom_dout);	// 512k * 32
 	
 	reg [9:1] CA_DEC;
 	wire [3:0] PROM_dout;
-	rom_sim #(8, 8, "prom_sprdec_8.txt") ROM_SPRDEC({CAJ, CA[17:10], CA_DEC, CA[3]}, PROM_dout);	// 256 * 8
+	rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/prom_sprdec_8.txt") ROM_SPRDEC({CAJ, CA[17:10], CA_DEC, CA[3]}, PROM_dout);	// 256 * 8
 	
 	always @(*) begin
 		case(PROM_dout[2:0])

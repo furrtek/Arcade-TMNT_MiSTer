@@ -1,14 +1,18 @@
 `timescale 1ns/100ps
 
+// Terminals and polarities checked ok
+// S4 ignored because it's always connected to S1 (~S2) ?
+// See fujitsu_av_cells.svg for cell trace
+
 module T5A(
-	input [1:0] A,
-	input [1:0] B,
+	input A1, A2,
+	input B1, B2,
 	input S2, S6,
 	output X
 );
 
-wire mux_A = S2 ? A[0] : A[1];
-wire mux_B = S2 ? B[0] : B[1];
+wire mux_A = S2 ? A1 : A2;
+wire mux_B = ~S2 ? B1 : B2;
 assign X = S6 ? ~mux_A : ~mux_B;
 
 endmodule

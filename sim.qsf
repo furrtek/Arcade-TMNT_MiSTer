@@ -107,3 +107,4 @@ set_global_assignment -name VERILOG_FILE sim/cells/a4h.v
 set_global_assignment -name VERILOG_FILE sim/cells/u24.v
 set_global_assignment -name VERILOG_FILE sim/cells/de2.v
 set_global_assignment -name VERILOG_FILE sim/cells/a2n.v
+set_global_assignment -name VERILOG_FILE sim/cells/t2d.v
