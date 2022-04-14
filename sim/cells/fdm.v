@@ -1,3 +1,9 @@
+// Fujitsu AV cell
+// DFF
+// furrtek 2022
+
+`timescale 1ns/100ps
+
 module FDM(
 	input CK,
 	input D,
@@ -6,7 +12,7 @@ module FDM(
 );
 
 always @(posedge CK)
-		Q <= D;
+		Q <= D;		// tmax = 6.0ns
 
 assign nQ = ~Q;
 

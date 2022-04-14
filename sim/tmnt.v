@@ -74,7 +74,7 @@ wire [7:0] DB_OUT_k051937;
 wire [11:0] OB;
 
 // ../../sim/roms/
-rom_sim #(16, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_68k_16.txt") ROM_68K(m68k_addr[18:1], m68k_rom_dout);		// 256k * 16
+rom_sim #(16, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_68k_fast_16.txt") ROM_68K(m68k_addr[18:1], m68k_rom_dout);		// 256k * 16
 
 reg PRI, PRI2;
 wire SHA, NFX, NOBJ, NVB, NVA;
@@ -83,14 +83,11 @@ wire ODTAC, VDTAC, nAS, NVBLK;
 wire [7:0] PROM_addr;
 assign PROM_addr = {PRI2, PRI, VB[7], SHA, NFX, NOBJ, NVB, NVA};	// 2C6 = VB[7] ?
 wire [7:0] PROM_dout;
-rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/prom_prio_8.txt") ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8 (really 256 * 4)
-//rom_prio ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8
+rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/prom_prio_8.txt") ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8 (really 256 * 4)
 
 wire SHADOW = PROM_dout[2];	// PROM_dout[3] unused
 
 ram_sim #(16, 13, "") RAM_68K(m68k_addr[13:1], m68k_ram_we, 1'b1, m68k_dout, m68k_ram_dout);			// 8k * 16
-//ram_sim #(8, 11, "") RAM_SPRITES(spr_ram_addr, spr_ram_we, 1'b1, spr_ram_din, spr_ram_dout);			// 2k * 8
-//ram_sim #(16, 13, "") RAM_TILES(tiles_ram_addr, tiles_ram_we, 1'b1, tiles_ram_din, tiles_ram_dout);	// 8k * 16
 
 assign nDTACK = &{ODTAC, VDTAC, nAS | m68k_addr[20]};
 
@@ -256,7 +253,10 @@ reg [7:0] DB_OUT;	// Video-side 8bit data bus
 
 // 007644 x2
 always @(*)
-	if (PE) k007644_reg <= DB_OUT;	// TODO: Get PE
+	if (PE)
+		k007644_reg <= DB_OUT;	// TODO: Get PE
+	else
+		k007644_reg <= k007644_reg;
 
 always @(*) begin
 	case({OEU, OEL})

@@ -1,3 +1,9 @@
+// Fujitsu AV cell
+// S-R Latch with CLEAR
+// furrtek 2022
+
+`timescale 1ns/100ps
+
 module LTL(
 	input D,
 	input nG,
@@ -11,7 +17,7 @@ always @(*) begin
 		Q <= 1'b0;
 	end else begin
 		if (!nG)
-			Q <= D;
+			Q <= D;	// tmax = 2.6ns
 	end
 end
 

@@ -1,3 +1,7 @@
+// Fujitsu AV cell
+// 2:1 Selector
+// furrtek 2022
+
 `timescale 1ns/100ps
 
 // Terminals and polarities checked ok
@@ -10,6 +14,6 @@ module T2D(
 	output X
 );
 
-assign X = S2 ? ~A : ~B;
+assign X = S2 ? ~A : ~B;	// tmax = 2.7ns
 
 endmodule

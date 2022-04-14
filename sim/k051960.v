@@ -307,7 +307,7 @@ assign Z139 = ~Z143;
 
 FDO AA121(clk_24M, AA141_XQ, AA1_Q, AA121_Q, AA121_XQ);
 FDO AA85(clk_24M, AA121_Q, AA1_Q, AA85_Q, );
-FDE AA41(clk_24M, AA85_Q, AA1_Q, , PQ);
+FDE AA41(clk_24M, AA85_Q, AA1_Q, PQ, );
 FDO AA63(clk_24M, AA85_Q, AA1_Q, , AA63_Q);	// Q or nQ ?
 assign AA96 = ~&{AA63_Q, ~AA141_XQ};
 assign AA94 = ~&{NRD, AA63_Q, ~AA141_XQ};
@@ -319,7 +319,7 @@ assign AB98 = ~|{AA11_Q[0], TE[0]};
 assign WRP = AA11_Q[1];
 assign WREN = AA11_Q[2];
 assign RDEN = AA11_Q[3];
-FDE AA103(clk_24M, AA121_XQ, AA1_Q, , PE);
+FDE AA103(clk_24M, ~AA141_XQ, AA1_Q, PE, );
 
 // 051937 IF 1
 

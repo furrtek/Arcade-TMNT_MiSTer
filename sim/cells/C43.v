@@ -1,4 +1,8 @@
-`timescale 1ns/1ns
+// Fujitsu AV cell
+// 4-bit Binary Synchronous Up Counter
+// furrtek 2022
+
+`timescale 1ns/100ps
 
 module C43(
 	input CK,
@@ -8,14 +12,13 @@ module C43(
 	output CO
 );
 
-	always @(posedge CK or posedge ~nCL)
-	begin
+	always @(posedge CK or posedge ~nCL) begin
 		if (!nL)
 			Q <= D;			// Load
 		else if (!nCL)
-			Q <= 4'd0;		// Clear
+			Q <= 4'd0;		// Clear tmax = 9.7ns
 		else if (EN & CI)
-			#1 Q <= Q + 1'b1;	// Count
+			#1 Q <= Q + 1'b1;	// Count tmax = 13.4ns
 		else
 			Q <= Q;
 	end

@@ -1,3 +1,7 @@
+// Fujitsu AV cell
+// 4:1 Selector
+// furrtek 2022
+
 `timescale 1ns/100ps
 
 // Terminals and polarities checked ok
@@ -13,6 +17,6 @@ module T5A(
 
 wire mux_A = S2 ? A1 : A2;
 wire mux_B = ~S2 ? B1 : B2;
-assign X = S6 ? ~mux_A : ~mux_B;
+assign X = S6 ? ~mux_A : ~mux_B;	// tmax = 3.3ns
 
 endmodule

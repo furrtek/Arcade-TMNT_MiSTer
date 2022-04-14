@@ -108,7 +108,7 @@ module planes(
 	assign tiles_rom_addr = {CAB, COL[3:2], COL[4], COL[1:0], VC};
 
 	// ../../sim/roms/
-	rom_sim #(32, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_tiles_32.txt") ROM_TILES(tiles_rom_addr, tiles_rom_dout);	// 256k * 32
+	rom_sim #(32, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_tiles_32.txt") ROM_TILES(tiles_rom_addr, tiles_rom_dout);	// 256k * 32
 
 	k051962 k051962_1(
 		.nRES(~reset),

@@ -1,33 +1,22 @@
-// NeoGeo logic definition
-// Copyright (C) 2018 Sean Gonsalves
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// Fujitsu AV cell
+// Power DFF with PRESET
+// furrtek 2022
+
+`timescale 1ns/100ps
 
 module FD3(
 	input nCK,
 	input D,
-	input nSET,
+	input PR,
 	output reg Q = 1'b0,
 	output nQ
 );
 
-	always @(posedge nCK, negedge nSET)	// Databook says negedge but makes no sense with use in LSPC shematic
-	begin
-		if (!nSET)
-			Q <= 1'b1;
+	always @(negedge nCK or negedge PR) begin	// Posedge ?
+		if (!PR)
+			Q <= 1'b1;	// tmax = 5.2ns
 		else
-			Q <= D;
+			Q <= D;		// tmax = 5.4ns
 	end
 	
 	assign nQ = ~Q;

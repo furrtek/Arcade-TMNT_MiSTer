@@ -1,3 +1,7 @@
+// Fujitsu AV cell
+// Positive Edge Clocked 4-bit DFF
+// furrtek 2022
+
 `timescale 1ns/100ps
 
 module FDS(
@@ -7,6 +11,6 @@ module FDS(
 );
 
 	always @(posedge CK)
-		Q <= #1 D;
+		Q <= D;		// tmax = 7.7ns
 
 endmodule

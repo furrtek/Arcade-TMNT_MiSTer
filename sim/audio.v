@@ -31,10 +31,10 @@ reg nINT;
 reg SNDON_prev;
 reg SNDDT_prev;
 
-rom_sim #(8, 15, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_z80_8.txt") ROM_Z80(Z80_addr[14:0], Z80_rom_dout);			// 32k * 8
-rom_sim #(16, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_theme_16.txt") ROM_THEME(theme_addr[17:0], theme_rom_dout);		// 256k * 16
-rom_sim #(8, 16, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_7759C_8.txt") ROM_7759(upd7759_addr, upd7759_rom_dout);		// 128k * 8
-rom_sim #(8, 16, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/rom_007232_8.txt") ROM_007232(k007232_addr, k007232_rom_dout);	// 128k * 8
+rom_sim #(8, 15, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_z80_8.txt") ROM_Z80(Z80_addr[14:0], Z80_rom_dout);			// 32k * 8
+rom_sim #(16, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_theme_16.txt") ROM_THEME(theme_addr[17:0], theme_rom_dout);		// 256k * 16
+rom_sim #(8, 16, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_7759C_8.txt") ROM_7759(upd7759_addr, upd7759_rom_dout);		// 128k * 8
+rom_sim #(8, 16, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_007232_8.txt") ROM_007232(k007232_addr, k007232_rom_dout);	// 128k * 8
 ram_sim #(8, 11, "") RAM_Z80(Z80_addr[10:0], ~nWR & ~U82[0], Z80_dout, Z80_ram_dout);		// 2k * 8
 
 assign nNMI = 1'b1;		// Hardwired

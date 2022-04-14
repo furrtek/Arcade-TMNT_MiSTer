@@ -1,3 +1,7 @@
+// Fujitsu AV cell
+// 2-bit Full Adder
+// furrtek 2022
+
 `timescale 1ns/100ps
 
 module A2N(
@@ -8,6 +12,6 @@ module A2N(
 	output CO
 );
 
-assign {CO, S} = A + B + CIN;
+assign {CO, S} = A + B + {1'd0, CIN};	// tmax = 5.3ns
 
 endmodule

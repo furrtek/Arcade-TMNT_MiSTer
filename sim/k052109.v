@@ -1,6 +1,9 @@
 // TMNT arcade core
 // Simulation blind schematic copy version
 // Sean Gonsalves 2022
+
+// TODO: Check VRAM address (RA), VD_OUT, /CE, /OE and /WE during CPU access
+
 `timescale 1ns/100ps
 
 module k052109 (
@@ -104,19 +107,19 @@ FDO H79(J121, ~PQ, J79_Q, H79_Q, );
 assign VDE = H79_Q | RMRD;
 
 FDN K141(clk_24M, nclk_12M, RES_SYNC, clk_12M, nclk_12M);
-FDN J109(clk_24M, nclk_12M ^ J114_nQ, RES_SYNC, J121, J114_nQ);	// 6M ?
+FDN J114(clk_24M, ~^{nclk_12M, J114_nQ}, RES_SYNC, J121, J114_nQ);	// 6M
 
-FDN J94(clk_24M, J94_Q ^ ~(nclk_12M & J114_nQ), RES_SYNC, J94_Q, J94_nQ);	// 3M ?
+FDN J94(clk_24M, ~^{J94_Q, ~(nclk_12M & J114_nQ)}, RES_SYNC, J94_Q, J94_nQ);	// 3M
 FDE J79(~clk_24M, J94_Q, RES_SYNC, J79_Q, );
 assign K117 = ~J94_nQ;
 assign L82 = J94_Q;
 
 assign C92 = ~|{&{~CRCS, ~J94_nQ, PQ}, REG1C00[5]};
 
-FDO K148(clk_24M, K123_Q, RES_SYNC, K148_Q, );
-FDE L120(clk_24M, K148_Q, RES_SYNC, PE, );
-FDO K130(clk_24M, K148_Q, RES_SYNC, K130_Q, );
 FDO K123(clk_24M, J94_nQ, RES_SYNC, K123_Q, K123_nQ);
+FDO K148(clk_24M, K123_Q, RES_SYNC, K148_Q, );
+FDE L120(clk_24M, K148_Q, RES_SYNC, PQ, );
+FDO K130(clk_24M, K148_Q, RES_SYNC, K130_Q, );
 
 reg [3:0] K77_Q;
 always @(posedge clk_24M or negedge RES_SYNC) begin
@@ -126,7 +129,7 @@ always @(posedge clk_24M or negedge RES_SYNC) begin
 		K77_Q <= {NRD & K123_Q, ~&{NRD, K117, K123_nQ}, ~&{NRD, K123_nQ, K130_Q}, K117};
 end
 
-assign PQ = K77_Q[0];
+assign PE = K77_Q[0];
 assign WRP = K77_Q[1];
 assign WREN = K77_Q[2];
 assign RDEN = K77_Q[3];
@@ -190,6 +193,8 @@ assign VC = RMRD ? {D136_Q, D96_Q, C99, C93, C103} : {D81_P, E120_P, B111, C144,
 
 
 // CPU STUFF
+
+assign VD_OUT = {DB_IN, DB_IN};
 
 FDE N122(clk_24M, 1'b1, nRES, RES_SYNC);
 

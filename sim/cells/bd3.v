@@ -1,3 +1,7 @@
+// Fujitsu AV cell
+// Buffer (Delay Cell)
+// furrtek 2022
+
 `timescale 1ns/100ps
 
 module BD3(
@@ -5,6 +9,6 @@ module BD3(
 	output OUTPT
 );
 
-	assign #5 OUTPT = INPT;
+	assign #12 OUTPT = INPT;	// tmax = 11.8ns
 
 endmodule

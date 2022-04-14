@@ -1,3 +1,7 @@
+// Fujitsu AV cell
+// Power 2-OR 4-wide Multiplexer
+// furrtek 2022
+
 `timescale 1ns/100ps
 
 module U24(
@@ -8,6 +12,6 @@ module U24(
 	output X
 );
 
-assign X = ~&{|{A}, |{B}, |{C}, |{D}};
+assign X = ~&{|{A}, |{B}, |{C}, |{D}};	// tmax = 3.2ns
 
 endmodule

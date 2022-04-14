@@ -1,18 +1,8 @@
-// NeoGeo logic definition
-// Copyright (C) 2018 Sean Gonsalves
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// Fujitsu AV cell
+// Power DFF with CLEAR and PRESET
+// furrtek 2022
+
+`timescale 1ns/100ps
 
 module FD4(
 	input CK,
@@ -22,14 +12,13 @@ module FD4(
 	output nQ
 );
 
-	always @(negedge CK, negedge PR, negedge CL)
-	begin
+	always @(negedge CK, negedge PR, negedge CL) begin
 		if (~PR)
-			Q <= #1 1'b1;
+			Q <= #1 1'b1;	// tmax = 5.7ns
 		else if (~CL)
-			Q <= #1 1'b0;
+			Q <= #1 1'b0;	// tmax = 5.7ns (typo ?)
 		else
-			Q <= #1 D;
+			Q <= #1 D;		// tmax = 5.7ns (typo ?)
 	end
 	
 	assign nQ = ~Q;
