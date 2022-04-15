@@ -2,10 +2,14 @@
 // Sean Gonsalves 2022
 `timescale 1ns/100ps
 
+// k052109 DB_DIR wrong: drops during reads AND writes
+
 // Current state: almost everything written except Z80 subsystem
 // Need to fix cell connections in k051960 (see modelsim output) to get rid of warnings
 // Passes palette RAM test (check d7 ? selftest results are stored as a bitmap)
-// Stalls at start of tile RAM test because 052109 replies Z when CPU reads back first byte (@ 1674985ns in sim)
+// Passes VRAM, WRAM and OBJ tests
+// Shortened checksum test in fast ROM, locks up with fixmap set to check screen with ROMs marked "BAD" as expected :)
+// TODO: Next step, get fix layer output to work
 
 // Clocks:
 // 640kHz for the TMNT theme playback
@@ -87,7 +91,9 @@ rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/prom_pri
 
 wire SHADOW = PROM_dout[2];	// PROM_dout[3] unused
 
-ram_sim #(16, 13, "") RAM_68K(m68k_addr[13:1], m68k_ram_we, 1'b1, m68k_dout, m68k_ram_dout);			// 8k * 16
+//ram_sim #(16, 13, "") RAM_68K(m68k_addr[13:1], m68k_ram_we, 1'b0, m68k_dout, m68k_ram_dout);			// 8k * 16
+ram_sim #(8, 13, "") RAM_68K_U(m68k_addr[13:1], NUWR, 1'b0, m68k_dout[15:8], m68k_ram_dout[15:8]);		// 8k * 8
+ram_sim #(8, 13, "") RAM_68K_L(m68k_addr[13:1], NLWR, 1'b0, m68k_dout[7:0], m68k_ram_dout[7:0]);		// 8k * 8
 
 assign nDTACK = &{ODTAC, VDTAC, nAS | m68k_addr[20]};
 
@@ -254,15 +260,15 @@ reg [7:0] DB_OUT;	// Video-side 8bit data bus
 // 007644 x2
 always @(*)
 	if (PE)
-		k007644_reg <= DB_OUT;	// TODO: Get PE
+		k007644_reg <= DB_OUT;
 	else
 		k007644_reg <= k007644_reg;
 
 always @(*) begin
 	case({OEU, OEL})
 		2'd0: DB_IN <= 8'bzzzzzzzz;	// Should never happen
-		2'd1: DB_IN <= m68k_din[15:8];
-		2'd2: DB_IN <= m68k_din[7:0];
+		2'd1: DB_IN <= m68k_dout[15:8];
+		2'd2: DB_IN <= m68k_dout[7:0];
 		2'd3: DB_IN <= 8'h00;			// Really hi-z, zero just in case
 	endcase
 end
@@ -298,6 +304,7 @@ planes PLANES(
 	.DB_IN(DB_IN),
 	.m68k_addr_16(m68k_addr[16]),
 	.AB(AB),
+	.nUDS(nUDS),
 	
 	.DB_OUT_k052109(DB_OUT_k052109),
 	.DBDIR_k052109(DBDIR_k052109),

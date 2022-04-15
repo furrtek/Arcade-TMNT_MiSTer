@@ -103,22 +103,22 @@ assign RCS[1] = J79_Q ? 1'b0 : CPU_VRAM_CS1;
 FDO J140(nclk_12M, J121, RES_SYNC, J140_Q, J140_nQ);
 assign J151 = J140_Q & REG1C00[5];
 
-FDO H79(J121, ~PQ, J79_Q, H79_Q, );
+FDO H79(J121, ~PE, J79_Q, H79_Q, );
 assign VDE = H79_Q | RMRD;
 
 FDN K141(clk_24M, nclk_12M, RES_SYNC, clk_12M, nclk_12M);
 FDN J114(clk_24M, ~^{nclk_12M, J114_nQ}, RES_SYNC, J121, J114_nQ);	// 6M
 
 FDN J94(clk_24M, ~^{J94_Q, ~(nclk_12M & J114_nQ)}, RES_SYNC, J94_Q, J94_nQ);	// 3M
-FDE J79(~clk_24M, J94_Q, RES_SYNC, J79_Q, );
+FDE J79(~clk_24M, J94_nQ, RES_SYNC, J79_Q, );
 assign K117 = ~J94_nQ;
-assign L82 = J94_Q;
+assign L82 = J94_nQ;
 
-assign C92 = ~|{&{~CRCS, ~J94_nQ, PQ}, REG1C00[5]};
+assign C92 = ~|{&{~CRCS, ~J94_nQ, PE}, REG1C00[5]};
 
 FDO K123(clk_24M, J94_nQ, RES_SYNC, K123_Q, K123_nQ);
 FDO K148(clk_24M, K123_Q, RES_SYNC, K148_Q, );
-FDE L120(clk_24M, K148_Q, RES_SYNC, PQ, );
+FDE L120(clk_24M, K148_Q, RES_SYNC, PE, );
 FDO K130(clk_24M, K148_Q, RES_SYNC, K130_Q, );
 
 reg [3:0] K77_Q;
@@ -129,7 +129,7 @@ always @(posedge clk_24M or negedge RES_SYNC) begin
 		K77_Q <= {NRD & K123_Q, ~&{NRD, K117, K123_nQ}, ~&{NRD, K123_nQ, K130_Q}, K117};
 end
 
-assign PE = K77_Q[0];
+assign PQ = K77_Q[0];
 assign WRP = K77_Q[1];
 assign WREN = K77_Q[2];
 assign RDEN = K77_Q[3];
@@ -232,8 +232,6 @@ assign B152 = B129 & B139;
 assign L147 = ~B152;
 assign DB_DIR = B149 & B152;
 
-assign RWE[0] = WRP | CPU_VRAM_CS0;
-assign RWE[1] = WRP | CPU_VRAM_CS1;
 assign L15 = ~RWE[1];
 
 assign E34 = ~|{VCS, RMRD};
@@ -261,18 +259,26 @@ REG1C00_D[1:0]:
 11  3    4    5
 */
 
-assign CPU_VRAM_CS0_A = REG1C00[0] ? range[3] : range[2];
+/*assign CPU_VRAM_CS0_A = REG1C00[0] ? range[3] : range[2];
 assign CPU_VRAM_CS0_B = REG1C00[0] ? range[5] : range[4];
-assign CPU_VRAM_CS0 = REG1C00[1] ? CPU_VRAM_CS0_B : CPU_VRAM_CS0_A;
+assign CPU_VRAM_CS0 = REG1C00[1] ? CPU_VRAM_CS0_B : CPU_VRAM_CS0_A;*/
+T5A A111(range[2], range[3], range[5], range[4], REG1C00[0], REG1C00[1], A111_OUT);
+assign CPU_VRAM_CS0 = ~A111_OUT;
+assign RWE[0] = WRP | CPU_VRAM_CS0;
 
-assign A126_A = REG1C00[0] ? range[2] : range[1];
+/*assign A126_A = REG1C00[0] ? range[2] : range[1];
 assign A126_B = REG1C00[0] ? range[4] : range[3];
-assign A126 = REG1C00[1] ? A126_B : A126_A;
+assign A126 = REG1C00[1] ? A126_B : A126_A;*/
+T5A A106(range[1], range[2], range[4], range[3], REG1C00[0], REG1C00[1], A106_OUT);
+assign A126 = ~A106_OUT;
 assign RWE[2] = A126 | WRP;
 
-assign CPU_VRAM_CS1_A = REG1C00[0] ? range[1] : range[0];
+/*assign CPU_VRAM_CS1_A = REG1C00[0] ? range[1] : range[0];
 assign CPU_VRAM_CS1_B = REG1C00[0] ? range[3] : range[2];
-assign CPU_VRAM_CS1 = REG1C00[1] ? CPU_VRAM_CS1_B : CPU_VRAM_CS1_A;
+assign CPU_VRAM_CS1 = REG1C00[1] ? CPU_VRAM_CS1_B : CPU_VRAM_CS1_A;*/
+T5A A100(range[0], range[1], range[3], range[2], REG1C00[0], REG1C00[1], A100_OUT);
+assign CPU_VRAM_CS1 = ~A100_OUT;
+assign RWE[1] = WRP | CPU_VRAM_CS1;
 
 // Scroll interval set
 
@@ -291,14 +297,14 @@ always @(*) begin
 	if (!L82)
 		VD_LATCH <= VD_IN;
 end
-assign DB_OUT = L147 ? VD_LATCH[15:8] : VD_LATCH[7:0];
+assign DB_OUT = L147 ? VD_LATCH[7:0] : VD_LATCH[15:8];	// Schematic says it's the opposite ?
 
 
 // H/V COUNTERS
 
 // H
 
-FDO H20(J121, PQ, RES_SYNC, H20_Q);
+FDO H20(J121, PE, RES_SYNC, H20_Q);
 assign PXH[0] = H20_Q;
 
 C43 N16(J121, 4'b0000, LINE_END, H20_Q, H20_Q, RES_SYNC, PXH[4:1], N16_COUT);
