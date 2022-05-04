@@ -81,3 +81,5 @@ sim/tests/test.v
 sim/tests/test
 sim/tests/test.vcd
 sim_description.txt
+sim/log_video.txt
+sim/roms/rom_68k_fast_16.txt

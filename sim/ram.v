@@ -29,6 +29,11 @@ initial begin
 	    data[i] <= d_init;
 	end
 	$fclose(f_init);*/
+	
+	// Clear to zero
+	for (i = 0; i < (2**addrBits); i=i+1) begin
+		data[i] <= {dataBits{1'b0}};
+	end
 end
 
 always @(*) begin

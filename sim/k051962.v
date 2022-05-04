@@ -1,6 +1,8 @@
 // TMNT arcade core
 // Simulation blind schematic copy version
 // Sean Gonsalves 2022
+// k051962: Plane data processor
+
 `timescale 1ns/100ps
 
 module k051962 (
@@ -54,6 +56,7 @@ FDE BB8(clk_24M, 1'b1, nRES, RES_SYNC, );
 
 FDN Z4(clk_24M, Z4_nQ, RES_SYNC, clk_12M, Z4_nQ);
 FDN Z47(clk_24M, ~^{Z47_nQ, Z4_nQ}, RES_SYNC, clk_6M, Z47_nQ);
+assign T70 = clk_6M;
 FDG Z68(clk_24M, clk_6M, RES_SYNC, , T61);
 FDN Z19(clk_24M, ~^{Z19_Q, ~&{Z47_nQ, Z4_nQ}}, RES_SYNC, Z19_Q, );
 
@@ -61,23 +64,23 @@ assign V154 = ~&{P1H, Z99_Q[1:0]};
 assign X80 = ~&{P1H, ~Z99_Q[1:0]};
 assign X78 = ~&{P1H, Z99_Q[1], ~Z99_Q[0]};
 
-FDG AA86(T70, AA102 & (OHBK | (Z99_COUT & AA108_Q[1])), RES_SYNC, OHBK, AA86_nQ);
-FDN Z81(Z99_Q[3], ~&{AA86_nQ, Z80}, Z81_Q);
+FDG AA86(T70, ~LINE_END & (OHBK | (Z99_COUT & AA108_Q[1])), RES_SYNC, OHBK, AA86_nQ);
+FDN Z81(Z99_Q[3], ~&{AA86_nQ, Z80}, RES_SYNC, Z81_Q);
 FDN Z88(Z99_Q[2], Z81_Q, RES_SYNC, Z88_Q);
 FDN Y86(Z99_Q[0], Z88_Q, RES_SYNC, NHSY);
 
 FDG Y100(T70, Y151, RES_SYNC, Y100_Q);
 FDG AA77(Y100_Q, OHBK, RES_SYNC, NHBK);
 
-FDG BB87(T70, ~^{BB87_nQ, AA105}, RES_SYNC, BB87_Q, BB87_nQ);
-assign AA105 = &{Z99_COUT, AA108_Q[3:2]};
-assign AA102 = ~AA105;
+FDG BB87(T70, ~^{BB87_nQ, LINE_END}, RES_SYNC, BB87_Q, BB87_nQ);
+assign LINE_END = &{Z99_COUT, AA108_Q[3:2]};
+//assign AA102 = ~AA105;	// /LINE_END
 assign BB101 = BB87_Q;	// Ignore test mode
-assign BB103 = AA105 & BB87_Q;
+assign BB103 = LINE_END & BB87_Q;
 
 // H counters
-C43 Z99(T70, 4'b0000, AA102, Y147, Y147, RES_SYNC, Z99_Q, Z99_COUT);
-C43 AA108(T70, 4'b0001, AA102, Z99_COUT, Z99_COUT, RES_SYNC, AA108_Q, );
+C43 Z99(T70, 4'b0000, ~LINE_END, Y147, Y147, RES_SYNC, Z99_Q, Z99_COUT);
+C43 AA108(T70, 4'b0001, ~LINE_END, Z99_COUT, Z99_COUT, RES_SYNC, AA108_Q, );
 assign Z80 = ~AA108_Q[1];
 
 // V counters
@@ -86,7 +89,7 @@ C43 BB105(T70, 4'b1100, ~CC107_COUT, BB101, BB103, RES_SYNC, BB105_Q, BB105_COUT
 wire [3:0] CC107_Q;
 C43 CC107(T70, 4'b0111, ~CC107_COUT, BB101, BB105_COUT, RES_SYNC, CC107_Q, CC107_COUT);
 
-FDG CC87(BB105_Q[3], &{CC107_Q[2:0]}, 1'b1, BB78, NVBK);
+FDG CC87(BB105_Q[3], &{CC107_Q[2:0]}, RES_SYNC, BB78, NVBK);
 LTL CC98(CC107_Q[3], NHSY, RES_SYNC, NVSY);
 assign NCSY = NVSY & NHSY;
 
@@ -114,8 +117,8 @@ always @(posedge BB78 or negedge RES_SYNC) begin
 end
 assign RST = RES_delay[7];
 
-FDG S77(BEN, DB_IN[0], BB7, S77_Q);
-FDG S86(BEN, DB_IN[1], BB7, S86_Q);
+FDG S77(BEN, DB_IN[0], RES_SYNC, S77_Q);
+FDG S86(BEN, DB_IN[1], RES_SYNC, S86_Q);
 
 FDM J61(L67, H13 ? ~J61_nQ : COL[0], , J61_nQ);
 FDM K83(L106, K153 ? ~K83_nQ : J61_nQ, , K83_nQ);
@@ -136,11 +139,12 @@ assign T15 = ZA4H ^ S106;
 assign T11 = ZA2H ^ S106;
 assign T7 = ZA1H ^ S106;
 
-FDG Z59(clk_24M, Z19_Q, RES_SYNC, Z59_Q);
-FDG Y77(T70, Z59_Q, BB7, Y77_Q);
+FDG Z59(clk_24M, Z19_Q, RES_SYNC, Z59_Q, );
+FDG Y77(T70, Z59_Q, RES_SYNC, Y77_Q, );
 assign P1H = Y77_Q;
+assign Y147 = Y77_Q;
 
-FDG X116(Z99_Q[0], Z99_Q[1], BB7, X116_Q);
+FDG X116(Z99_Q[0], Z99_Q[1], RES_SYNC, X116_Q);
 assign X102 = P1H ^ S102;
 assign X108 = X116_Q ^ S102;
 assign X112 = ~Z99_Q[0] ^ S102;

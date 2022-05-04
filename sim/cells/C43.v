@@ -18,11 +18,11 @@ module C43(
 		else if (!nCL)
 			Q <= 4'd0;		// Clear tmax = 9.7ns
 		else if (EN & CI)
-			#1 Q <= Q + 1'b1;	// Count tmax = 13.4ns
+			Q <= Q + 1'b1;	// Count tmax = 13.4ns
 		else
 			Q <= Q;
 	end
 	
-	assign #3 CO = &{Q[3:0], CI};
+	assign CO = &{Q[3:0], CI};
 
 endmodule

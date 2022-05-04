@@ -56,9 +56,19 @@ top DUT(
 );
 
 always @(*)
-	#1 clk <= ~clk;
+	#21 clk <= ~clk;	// 23.8MHz ~24MHz
+
+integer f_video;
+reg record_pixels;
+reg prev_V6M, prev_NHBK;
 
 initial begin
+	f_video = $fopen("C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/log_video.txt", "w");
+	
+	record_pixels <= 1'b0;
+	prev_V6M <= 1'b0;
+	prev_NHBK <= 1'b0;
+	
 	clk <= 1'b0;
 	reset <= 1'b1;
 	dipswitch1 <= 8'b11111100;
@@ -99,6 +109,43 @@ initial begin
 	
 	//#50000
 	//$stop();
+end
+
+always @(posedge clk) begin
+	if (!DUT.HVOT) begin
+		if (record_pixels) begin
+			$fwrite(f_video, "V ");
+			$fclose(f_video);
+			$display("TB: Done");
+			#1000
+			$stop;
+		end
+	end
+	
+	if (DUT.PLANES.NHBK & ~prev_NHBK) begin
+		if (record_pixels) begin
+			$fwrite(f_video, "L ");
+			$display("TB: Line !");
+			
+			/*if (DUT.PLANES.k052109_1.ROW == 8'd10) begin
+				$fclose(f_video);
+				$display("TB: Done");
+				$stop;
+			end*/
+		end
+	end
+	
+	if (DUT.V6M & ~prev_V6M) begin
+		if (record_pixels) begin
+			$fwrite(f_video, "%05X ", {video_r, video_g, video_b});
+		end
+	end
+	
+	if (DUT.PLANES.k052109_1.ROW == 8'hFF)
+		record_pixels <= 1'b1;
+	
+	prev_V6M <= DUT.V6M;
+	prev_NHBK <= DUT.PLANES.NHBK;
 end
 
 endmodule

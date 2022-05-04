@@ -1,8 +1,9 @@
 // TMNT arcade core
 // Simulation blind schematic copy version
 // Sean Gonsalves 2022
+// k052109: Plane address generator
 
-// TODO: Check VRAM address (RA), VD_OUT, /CE, /OE and /WE during CPU access
+// CPU access read and write seems ok
 
 `timescale 1ns/100ps
 
@@ -82,8 +83,13 @@ wire [12:0] RA_MUX_B;
 wire [12:0] RA_MUX_C;
 // A1: 110 Y80 Y91 Y76 Y129 SCROLL_RAM_A[5:0]	Scroll data
 // A2: 01 MAP_A[10:0]									Tilemap A
-// B1: 00 ROW[7:3] PXH[8:5] PXH4F PXH3F			Fixmap
-// B2: 10 MAP_B[10:0]									Tilemap B
+// B1: 10 MAP_B[10:0]									Tilemap B
+// B2: 00 ROW[7:3] PXH[8:5] PXH4F PXH3F			Fixmap
+// PXH[2:1]	Address
+// 0			Scroll
+// 1			A
+// 2			B
+// 3			Fix
 assign RA_MUX_A = ~PXH[1] ? {3'b110, Y80, Y91, Y78, Y129, SCROLL_RAM_A[5:0]} : {2'b01, MAP_A[10:0]};
 assign RA_MUX_B = PXH[1] ? {2'b00, ROW[7:3], PXH[8:5], PXH4F, PXH3F} : {2'b10, MAP_B[10:0]};
 assign RA_MUX_C = ~PXH[2] ? RA_MUX_A : RA_MUX_B;
@@ -118,7 +124,7 @@ assign C92 = ~|{&{~CRCS, ~J94_nQ, PE}, REG1C00[5]};
 
 FDO K123(clk_24M, J94_nQ, RES_SYNC, K123_Q, K123_nQ);
 FDO K148(clk_24M, K123_Q, RES_SYNC, K148_Q, );
-FDE L120(clk_24M, K148_Q, RES_SYNC, PE, );
+FDE L120(clk_24M, K148_Q, RES_SYNC, PQ, );
 FDO K130(clk_24M, K148_Q, RES_SYNC, K130_Q, );
 
 reg [3:0] K77_Q;
@@ -129,7 +135,7 @@ always @(posedge clk_24M or negedge RES_SYNC) begin
 		K77_Q <= {NRD & K123_Q, ~&{NRD, K117, K123_nQ}, ~&{NRD, K123_nQ, K130_Q}, K117};
 end
 
-assign PQ = K77_Q[0];
+assign PE = K77_Q[0];
 assign WRP = K77_Q[1];
 assign WREN = K77_Q[2];
 assign RDEN = K77_Q[3];
@@ -149,8 +155,13 @@ wire [2:0] VC_MUX_C;
 // A2: CC59_Q CC68_Q BB39_Q
 // B1: ROW_B[2] ROW_B[1] ROW_B[0]
 // B2: ROW_A[2] ROW_A[1] ROW_A[0]
+// PXH[2:1]	Address
+// 0			VC_MUX_A
+// 1			VC_MUX_A
+// 2			ROW_A
+// 3			ROW_B
 assign VC_MUX_A = {CC59_Q, CC68_Q, BB39_Q};	// Identical inputs
-assign VC_MUX_B = PXH[1] ? {ROW_B[2:0]} : {ROW_A[2:0]};
+assign VC_MUX_B = PXH[1] ? ROW_B[2:0] : ROW_A[2:0];
 assign VC_MUX_C = ~PXH[2] ? VC_MUX_A : VC_MUX_B;
 
 // LTKs
@@ -189,7 +200,7 @@ always @(posedge ~PXH[0]) begin
 end
 
 // Select between rendering and CPU ROM reading
-assign VC = RMRD ? {D136_Q, D96_Q, C99, C93, C103} : {D81_P, E120_P, B111, C144, C119};
+assign VC = ~RMRD ? {D136_Q, D96_Q, C99, C93, C103} : {D81_P, E120_P, B111, C144, C119};
 
 
 // CPU STUFF
@@ -282,14 +293,14 @@ assign RWE[1] = WRP | CPU_VRAM_CS1;
 
 // Scroll interval set
 
-assign E40 = (REG1C80[0] & G29_Q[0]) | (REG1C80[3] & ~G29_Q[0]);
-assign ROW_A = ROW[2:0] & {3{E40}};		// Enable/disable scrolling entirely
+// E40: Enable/disable scrolling entirely
+assign E40 = (REG1C80[0] & G29_Q[0]) | (REG1C80[3] & ~G29_Q[0]);	
 
 wire [5:0] FLIP_ADDER;
 wire FLIP_SCREEN;
 assign FLIP_ADDER = {PXH[8:5], PXH4F, PXH3F} + {6{FLIP_SCREEN}};
 
-assign SCROLL_RAM_A = AA38 ? {ROW[4:3], ROW_A, PXH[3]} : FLIP_ADDER;
+assign SCROLL_RAM_A = AA38 ? {ROW[4:3], ROW[2:0] & {3{E40}}, PXH[3]} : FLIP_ADDER;
 
 // VRAM read by CPU - Upper/lower byte select
 reg [15:0] VD_LATCH;
@@ -297,7 +308,7 @@ always @(*) begin
 	if (!L82)
 		VD_LATCH <= VD_IN;
 end
-assign DB_OUT = L147 ? VD_LATCH[7:0] : VD_LATCH[15:8];	// Schematic says it's the opposite ?
+assign DB_OUT = L147 ? VD_LATCH[7:0] : VD_LATCH[15:8];
 
 
 // H/V COUNTERS
@@ -307,14 +318,14 @@ assign DB_OUT = L147 ? VD_LATCH[7:0] : VD_LATCH[15:8];	// Schematic says it's th
 FDO H20(J121, PE, RES_SYNC, H20_Q);
 assign PXH[0] = H20_Q;
 
-C43 N16(J121, 4'b0000, LINE_END, H20_Q, H20_Q, RES_SYNC, PXH[4:1], N16_COUT);
-C43 G29(J121, 4'b0001, LINE_END, C43_COUT, C43_COUT, RES_SYNC, G29_Q, );
+C43 N16(J121, 4'b0000, ~LINE_END, H20_Q, H20_Q, RES_SYNC, PXH[4:1], N16_COUT);
+C43 G29(J121, 4'b0001, ~LINE_END, N16_COUT, N16_COUT, RES_SYNC, G29_Q, );
 assign PXH[8:5] = G29_Q ^ {4{FLIP_SCREEN}};
 assign PXH3F = PXH[3] ^ FLIP_SCREEN;
 assign PXH4F = PXH[4] ^ FLIP_SCREEN;
 
 FDO G4(J121, ~G2, RES_SYNC, G4_Q);
-assign G2 = ~&{LINE_END, G4_Q | (N16_COUT & G29_Q[1])};
+assign G2 = ~&{~LINE_END, G4_Q | (N16_COUT & G29_Q[1])};
 
 assign LINE_END = &{N16_COUT, G29_Q[3:2]};
 
@@ -322,13 +333,14 @@ assign AA38 = ~G4_Q;
 
 // V
 
-FDO G20(J121, LINE_END ^ G20_nQ, RES_SYNC, G20_Q, G20_nQ);
+FDO G20(J121, ~^{LINE_END, G20_nQ}, RES_SYNC, G20_Q, G20_nQ);
 assign TRIG_FIRQ = ~G20_nQ;
 
 wire [3:0] J29_Q;
 C43 J29(J121, 4'b1100, ~H29_COUT, G20_Q, LINE_END & G20_Q, RES_SYNC, J29_Q, J29_Q_COUT);
 wire [3:0] H29_Q;
 C43 H29(J121, 4'b0111, ~H29_COUT, G20_Q, J29_Q_COUT, RES_SYNC, H29_Q, H29_COUT);
+assign HVOT = ~H29_COUT;
 
 assign ROW = {H29_Q[2:0], J29_Q, G20_Q} ^ {8{FLIP_SCREEN}};
 
@@ -399,7 +411,7 @@ always @(posedge ~AA2_Q or negedge RES_SYNC) begin
 end
 
 FDE AA22(PXH[1], PXH[3], READ_SCROLL_A, AA22_Q);
-FDE AA41(AA22_Q, VD_IN[8], AA41_Q);
+FDE AA41(AA22_Q, VD_IN[8], RES_SYNC, AA41_Q);
 
 wire [8:0] ADD_AX;
 assign ADD_AX = {{6{FLIP_SCREEN}}, 1'b0, {2{FLIP_SCREEN}}} + {AA41_Q, VD_REG_AX};
@@ -436,7 +448,7 @@ always @(posedge ~BB2_Q or negedge RES_SYNC) begin
 end
 
 FDE BB9(PXH[1], PXH[3], READ_SCROLL_B, BB9_Q);
-FDE AA81(BB9_Q, VD_IN[0], AA81_Q);
+FDE AA81(BB9_Q, VD_IN[0], RES_SYNC, AA81_Q);
 
 wire [8:0] ADD_BX;
 assign ADD_BX = {{6{FLIP_SCREEN}}, 1'b0, {2{FLIP_SCREEN}}} + {AA81_Q, VD_REG_BX};
@@ -498,9 +510,9 @@ wire [1:0] COL_MUX_AB;
 assign COL_MUX_AA = ~F130 ? {G136_Q[2], G136_Q[3]} : {H127_Q[2], H127_Q[3]};
 assign COL_MUX_AB = {2{REG1E00[1:0]}};	// Identical inputs
 assign COL[1:0] = ~RMRD ? COL_MUX_AA : COL_MUX_AB;
-	
-assign F24 = ~F130 ? H127_Q[0] : G136_Q[0];
-assign F41 = ~F130 ? H127_Q[1] : G136_Q[1];
+
+assign F24 = ~F130 ? G136_Q[0] : H127_Q[0];
+assign F41 = ~F130 ? G136_Q[1] : H127_Q[1];
 
 reg [3:0] G77_Q;
 always @(posedge ~PXH[0])

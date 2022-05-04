@@ -37,6 +37,7 @@ module planes(
 	wire PQ;
 	wire [17:0] tiles_rom_addr;
 	wire [31:0] tiles_rom_dout;
+	wire [31:0] tiles_rom_planar;
 	wire [7:0] COL;
 	wire [10:0] VC;
 	wire [2:1] CAB;
@@ -110,6 +111,49 @@ module planes(
 	// ../../sim/roms/
 	rom_sim #(32, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_tiles_32.txt") ROM_TILES(tiles_rom_addr, tiles_rom_dout);	// 256k * 32
 
+	// Chunky to planar (routing on PCB)
+	assign tiles_rom_planar = {
+		tiles_rom_dout[31],	// V
+		tiles_rom_dout[27],	// R
+		tiles_rom_dout[23],	// N
+		tiles_rom_dout[19],	// J
+		
+		tiles_rom_dout[15],	// F
+		tiles_rom_dout[11],	// 9
+		tiles_rom_dout[7],	// 7
+		tiles_rom_dout[3],	// 3
+		
+		tiles_rom_dout[30],	// U
+		tiles_rom_dout[26],	// Q
+		tiles_rom_dout[22],	// M
+		tiles_rom_dout[18],	// I
+		
+		tiles_rom_dout[14],	// E
+		tiles_rom_dout[10],	// A
+		tiles_rom_dout[6],	// 6
+		tiles_rom_dout[2],	// 2
+		
+		tiles_rom_dout[29],	// T
+		tiles_rom_dout[25],	// P
+		tiles_rom_dout[21],	// L
+		tiles_rom_dout[17],	// H
+		
+		tiles_rom_dout[13],	// D
+		tiles_rom_dout[9],	// 9
+		tiles_rom_dout[5],	// 5
+		tiles_rom_dout[1],	// 1
+		
+		tiles_rom_dout[28],	// S
+		tiles_rom_dout[24],	// O
+		tiles_rom_dout[20],	// K
+		tiles_rom_dout[16],	// G
+		
+		tiles_rom_dout[12],	// C
+		tiles_rom_dout[8],	// 8
+		tiles_rom_dout[4],	// 4
+		tiles_rom_dout[0]		// 0
+	};
+	
 	k051962 k051962_1(
 		.nRES(~reset),
 		.clk_24M(clk_main),
@@ -132,12 +176,12 @@ module planes(
 		.ZB1H(ZB1H), .ZB2H(ZB2H), .ZB4H(ZB4H),	// From k052109
 		.COL({COL[7:5], 5'b00000}),	// From k052109 (partially)
 		
-		.VC(tiles_rom_dout),		// GFX ROM data
+		.VC(tiles_rom_planar),		// GFX ROM data
 		
 		// Video sync and blanking
 		.NVBK(NVBLK),
 		.NHBK(NHBK),
-		.NVSY(NVSY),	// TODO: Where does NVSYNC go ?
+		.NVSY(NVSY),
 		.NCSY(SYNC),
 		
 		// CPU interface

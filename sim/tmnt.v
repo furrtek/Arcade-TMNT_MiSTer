@@ -5,11 +5,15 @@
 // k052109 DB_DIR wrong: drops during reads AND writes
 
 // Current state: almost everything written except Z80 subsystem
+// Shortened checksum test in fast ROM, locks up with fixmap set to check screen with ROMs marked "BAD" (tiles $12 $11 $14) as expected :)
 // Need to fix cell connections in k051960 (see modelsim output) to get rid of warnings
-// Passes palette RAM test (check d7 ? selftest results are stored as a bitmap)
+// Passes palette RAM test (check d7, selftest results are stored as a bitmap)
 // Passes VRAM, WRAM and OBJ tests
-// Shortened checksum test in fast ROM, locks up with fixmap set to check screen with ROMs marked "BAD" as expected :)
 // TODO: Next step, get fix layer output to work
+// HVOT from k052109 -> HVIN of sprite chips for frame sync
+// k052109 H/V counters ok, checked HVOT output against real chip.
+// k051962 H/V counters ok, checked NCSY, NHBK, NVBK, NVSY, OHBK and k052109 HVOT outputs against real chip.
+// Very first frame after reset must be ignored, logic not fully init (checked against real chips).
 
 // Clocks:
 // 640kHz for the TMNT theme playback
@@ -321,8 +325,12 @@ planes PLANES(
 	.NFX(NFX),
 	
 	.NVBLK(NVBLK),
+	.NCBLK(NCBLK),
 	.SYNC(video_sync)
 );
+
+assign NOBJ = 1'b0;	// DEBUG
+assign SHA = 1'b0;	// DEBUG
 
 sprites SPRITES(
 	.reset(reset),
@@ -344,7 +352,7 @@ sprites SPRITES(
 	.DB_OUT_k051937(DB_OUT_k051937),
 	.DBDIR_k051937(DBDIR_k051937),
 	
-	.SHA(SHA), .NOBJ(NOBJ),
+	.SHA(), .NOBJ(),	// DEBUG .SHA(SHA), .NOBJ(NOBJ)
 	.OB(OB),
 	
 	.ODTAC(ODTAC)
