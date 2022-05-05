@@ -141,6 +141,7 @@ always @(posedge clk) begin
 		end
 	end
 	
+	// Ignore first "frame"
 	if (DUT.PLANES.k052109_1.ROW == 8'hFF)
 		record_pixels <= 1'b1;
 	

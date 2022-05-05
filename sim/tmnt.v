@@ -4,13 +4,14 @@
 
 // k052109 DB_DIR wrong: drops during reads AND writes
 
-// Current state: almost everything written except Z80 subsystem
-// Shortened checksum test in fast ROM, locks up with fixmap set to check screen with ROMs marked "BAD" (tiles $12 $11 $14) as expected :)
+// Current state: FIX layer output works ok
+// Almost everything written except Z80 subsystem
+// Shortened checksum test in fast ROM, locks up with fixmap set to check screen with ROMs marked "BAD" as expected :)
 // Need to fix cell connections in k051960 (see modelsim output) to get rid of warnings
 // Passes palette RAM test (check d7, selftest results are stored as a bitmap)
 // Passes VRAM, WRAM and OBJ tests
-// TODO: Next step, get fix layer output to work
-// HVOT from k052109 -> HVIN of sprite chips for frame sync
+
+// HVOT from k052109 -> HVIN of sprite chips for frame sync.
 // k052109 H/V counters ok, checked HVOT output against real chip.
 // k051962 H/V counters ok, checked NCSY, NHBK, NVBK, NVSY, OHBK and k052109 HVOT outputs against real chip.
 // Very first frame after reset must be ignored, logic not fully init (checked against real chips).
@@ -55,50 +56,42 @@ reg [15:0] m68k_din;
 wire [15:0] m68k_dout;
 wire [15:0] m68k_rom_dout;
 wire [15:0] m68k_ram_dout;
-
-wire [19:0] spr_rom_addr;
-wire [31:0] spr_rom_dout;
+wire nAS;
 
 wire [7:0] pal_dout;
 
-wire [10:0] spr_ram_addr;
-wire [7:0] spr_ram_din;
-wire [7:0] spr_ram_dout;
-
-wire [12:0] tiles_ram_addr;
-wire [15:0] tiles_ram_din;
-wire [15:0] tiles_ram_dout;
-
-wire [7:0] DB_OUT_k052109;
-wire [7:0] DB_OUT_k051962;
-wire [11:0] VA;
-wire [11:0] VB;
-wire [7:0] FX;
+wire [7:0] DB_OUT_k052109;	// Data from k052109
+wire [7:0] DB_OUT_k051960;	// Data from k051960
+wire [7:0] DB_OUT_k051962;	// Data from k051962
+wire [7:0] DB_OUT_k051937;	// Data from k051937
+wire [11:0] VA;				// Layer A palette and pixel
+wire [11:0] VB;				// Layer B palette and pixel
+wire [7:0] FX;					// Layer FIX palette and pixel
+wire [11:0] OB;				// Sprites palette and pixel
 reg INT16EN;
 reg [7:0] k007644_reg;
 
-wire [7:0] DB_OUT_k051960;
-wire [7:0] DB_OUT_k051937;
-wire [11:0] OB;
+reg PRI, PRI2;
+wire SHA;
+wire NFX, NOBJ, NVB, NVA;	// Pixel opaque signals (active high)
+wire ODTAC, VDTAC;			// DTACKs from sprite and plane chips
+wire NVBLK;
 
 // ../../sim/roms/
 rom_sim #(16, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_68k_fast_16.txt") ROM_68K(m68k_addr[18:1], m68k_rom_dout);		// 256k * 16
 
-reg PRI, PRI2;
-wire SHA, NFX, NOBJ, NVB, NVA;
-wire ODTAC, VDTAC, nAS, NVBLK;
+wire [7:0] prio_addr;
+wire [7:0] prio_dout;
+assign prio_addr = {PRI2, PRI, VB[7], SHA, NFX, NOBJ, NVB, NVA};	// 2C6 = VB[7] ?
+rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/prom_prio_8.txt") ROM_PRIO(prio_addr, prio_dout);	// 256 * 8 (really 256 * 4)
 
-wire [7:0] PROM_addr;
-assign PROM_addr = {PRI2, PRI, VB[7], SHA, NFX, NOBJ, NVB, NVA};	// 2C6 = VB[7] ?
-wire [7:0] PROM_dout;
-rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/prom_prio_8.txt") ROM_PRIO(PROM_addr, PROM_dout);	// 256 * 8 (really 256 * 4)
-
-wire SHADOW = PROM_dout[2];	// PROM_dout[3] unused
+wire SHADOW = prio_dout[2];	// prio_dout[3] unused
 
 //ram_sim #(16, 13, "") RAM_68K(m68k_addr[13:1], m68k_ram_we, 1'b0, m68k_dout, m68k_ram_dout);			// 8k * 16
 ram_sim #(8, 13, "") RAM_68K_U(m68k_addr[13:1], NUWR, 1'b0, m68k_dout[15:8], m68k_ram_dout[15:8]);		// 8k * 8
 ram_sim #(8, 13, "") RAM_68K_L(m68k_addr[13:1], NLWR, 1'b0, m68k_dout[7:0], m68k_ram_dout[7:0]);		// 8k * 8
 
+// Everything below 100000 is full speed
 assign nDTACK = &{ODTAC, VDTAC, nAS | m68k_addr[20]};
 
 // LS74
@@ -150,7 +143,7 @@ assign nROMCS = &{U47[1:0]};	// Bottom ROMs
 assign nW1CS = U47[2];			// Top ROMs
 assign nW2CS = U47[3];			// Work RAM
 assign COLCS = U47[4];			// Palette RAM
-assign SYSWR = U47[6];			// ???
+assign SYSWR = U47[6];			// Set PRI*
 
 reg [7:0] U45;	// CPU LS138
 always @(*) begin
@@ -167,9 +160,9 @@ always @(*) begin
 	endcase
 end
 
-assign IOWR = U45[0];	// Coin lockouts ?
+assign IOWR = U45[0];	// Coin lockouts, GFX ROM read...
 assign SNDDT = U45[1];	// Sound code
-assign AFR = U45[2];		// Watchdog
+assign AFR = U45[2];		// k051550 watchdog reset
 
 assign SHOOT = U45[4];	// Read inputs
 assign DIP = U45[6];
@@ -182,8 +175,8 @@ always @(posedge IOWR or posedge reset) begin
 		{RMRD, INT16EN, SNDON, coin_counter} <= 5'b000_00;
 	end else begin
 		RMRD <= m68k_dout[7];		// GFX ROM read
-		INT16EN <= m68k_dout[5];
-		SNDON <= m68k_dout[3];
+		INT16EN <= m68k_dout[5];	// Vblank IRQ en
+		SNDON <= m68k_dout[3];		// Z80 IRQ trig
 		coin_counter[1] <= m68k_dout[1];
 		coin_counter[0] <= m68k_dout[0];
 	end
@@ -232,48 +225,41 @@ always @(*) begin
 		
 		10'b0z_zzzz_zzzz: m68k_din <= {2{k007644_reg}};
 
-		default: m68k_din <= 16'h0000;	//m68k_din[15:0] <= 16'bzzzzzzzz_zzzzzzzz;
+		default: m68k_din <= 16'h0000;	//m68k_din <= 16'bzzzzzzzz_zzzzzzzz;
 	endcase
 end
 
-// SYSWR: PRI <= M68K_DOUT[2];
-// SYSWR: PRI2 <= M68K_DOUT[3];
-// IOWR: OUT1 <= M68K_DOUT[0];	Coin counter 1
-// IOWR: OUT2 <= M68K_DOUT[1];	Coin counter 2
-// IOWR: SNDON <= M68K_DOUT[3];
-// IOWR: INT16EN <= M68K_DOUT[5];
-// IOWR: RMRD <= M68K_DOUT[7];
-
-// AFR: 051550 watchdog reset
 // V24M = O24M = 24M
 
 wire [15:1] AB = m68k_addr[15:1];	// Just 2x LS245 buffers
 
 assign NREAD = ~m68k_rw;
 assign OVCS = ~&{m68k_addr[20], ~nAS};
-assign OBJCS = ((m68k_addr[18:17] == 2'd2) & ~OVCS) ? 1'b0 : 1'b1;
-assign VRAMCS = ((m68k_addr[18:17] == 2'd0) & ~OVCS) ? 1'b0 : 1'b1;
+assign OBJCS = ~((m68k_addr[18:17] == 2'd2) & ~OVCS);
+assign VRAMCS = ~((m68k_addr[18:17] == 2'd0) & ~OVCS);
 assign OEQ = NREAD | OVCS;
 
-assign OEL = ({OVCS, m68k_rw, nUDS} == 3'b001) ? 1'b0 : 1'b1;
-assign OEU = ({OVCS, m68k_rw, nUDS} == 3'b000) ? 1'b0 : 1'b1;
+assign OEL = ~({OVCS, m68k_rw, nUDS} == 3'b001);
+assign OEU = ~({OVCS, m68k_rw, nUDS} == 3'b000);
 
-reg [7:0] DB_IN;	// Video-side 8bit data bus
-reg [7:0] DB_OUT;	// Video-side 8bit data bus
+// Video-side 8bit data bus
+reg [7:0] DB_IN;
+reg [7:0] DB_OUT;
 
 // 007644 x2
-always @(*)
+always @(*) begin
 	if (PE)
 		k007644_reg <= DB_OUT;
 	else
 		k007644_reg <= k007644_reg;
+end
 
 always @(*) begin
 	case({OEU, OEL})
 		2'd0: DB_IN <= 8'bzzzzzzzz;	// Should never happen
 		2'd1: DB_IN <= m68k_dout[15:8];
 		2'd2: DB_IN <= m68k_dout[7:0];
-		2'd3: DB_IN <= 8'h00;			// Really hi-z, zero just in case
+		2'd3: DB_IN <= 8'h00;			// Really hi-z, zero to make sim happy
 	endcase
 end
 
@@ -290,7 +276,7 @@ always @(*) begin
 		4'b1011: DB_OUT <= DB_OUT_k051962;
 		4'b1101: DB_OUT <= DB_OUT_k051960;
 		4'b1110: DB_OUT <= DB_OUT_k051937;
-		default: DB_OUT <= 8'h00;			// Really hi-z, zero just in case
+		default: DB_OUT <= 8'h00;		// Really hi-z, zero to make sim happy
 	endcase
 end
 
@@ -363,17 +349,13 @@ sprites SPRITES(
 reg [9:0] CD;
 
 always @(*) begin
-	case(PROM_dout[1:0])
+	case(prio_dout[1:0])
 		2'd0: CD <= {2'b10, 1'b0, VA[7:5], VA[3:0]};	// VA[4] unused
 		2'd1: CD <= {2'b10, 1'b1, VB[7:5], VB[3:0]};	// VB[4] unused
 		2'd2: CD <= {2'b01, OB[7:0]};						// Sprites
 		2'd3: CD <= {2'b00, 1'b0, FX[7:5], FX[3:0]};	// FX[4] unused
 	endcase
 end
-
-wire [5:0] RED_OUT;
-wire [5:0] GREEN_OUT;
-wire [5:0] BLUE_OUT;
 
 TMNTColor color(
 	.V6M(V6M),

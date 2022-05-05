@@ -49,7 +49,7 @@ module TMNTColor(
 	always @(posedge V6M)
 		COL <= {C_REG[10], RAM_DOUT_HIGH[6:0], RAM_DOUT_LOW};
 	
-	// COL[15] = NCBLK
+	// COL[15] = NCBLK delayed
 	assign RED = COL[15] ? COL[4:0] : 5'd0;
 	assign GREEN = COL[15] ? COL[9:5] : 5'd0;
 	assign BLUE = COL[15] ? COL[14:10] : 5'd0;
