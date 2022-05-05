@@ -5,11 +5,12 @@
 // k052109 DB_DIR wrong: drops during reads AND writes
 
 // Current state: FIX layer output works ok
+// Next step: Init VRAM and config registers with snapshots from MAME to see if layers A and B work correctly
 // Almost everything written except Z80 subsystem
 // Shortened checksum test in fast ROM, locks up with fixmap set to check screen with ROMs marked "BAD" as expected :)
 // Need to fix cell connections in k051960 (see modelsim output) to get rid of warnings
 // Passes palette RAM test (check d7, selftest results are stored as a bitmap)
-// Passes VRAM, WRAM and OBJ tests
+// Passes VRAM, WRAM and SPR RAM tests
 
 // HVOT from k052109 -> HVIN of sprite chips for frame sync.
 // k052109 H/V counters ok, checked HVOT output against real chip.

@@ -2,6 +2,7 @@
 // Simulation blind schematic copy version
 // Sean Gonsalves 2022
 // k052109: Plane address generator
+// Generates GFX ROM address in sequence according to contents of VRAM
 // Handles coarse scrolling only, fine scrolling is done in the k051962
 
 // CPU access read and write seems ok
@@ -52,7 +53,7 @@ module k052109 (
 	output [7:0] COL,				// Tile COL attribute bits
 	output ZA1H, ZA2H, ZA4H,	// Plane A fine scroll
 	output ZB1H, ZB2H, ZB4H,	// Plane B fine scroll
-	output BEN,
+	output BEN,		// Reg 1E80 write
 	
 	output DB_DIR
 );
@@ -127,8 +128,6 @@ FDN J114(clk_24M, ~^{nclk_12M, nclk_6M}, RES_SYNC, clk_6M, nclk_6M);
 
 FDN J94(clk_24M, ~^{clk_3M, ~(nclk_12M & nclk_6M)}, RES_SYNC, clk_3M, nclk_3M);
 FDE J79(~clk_24M, nclk_3M, RES_SYNC, nCPU_ACCESS, );
-//assign K117 = ~nclk_3M;	// = clk_3M
-//assign L82 = nclk_3M;
 
 assign C92 = ~|{&{~CRCS, clk_3M, PE}, REG1C00[5]};
 
@@ -209,7 +208,7 @@ assign VD_OUT = {DB_IN, DB_IN};
 FDE N122(clk_24M, 1'b1, nRES, RES_SYNC);
 
 // 8-frame delay for RES -> RST
-// Same in k051962 ?
+// Same in k051962
 wire TRIG_IRQ;
 reg [7:0] RES_delay;
 always @(posedge TRIG_IRQ or negedge RES_SYNC) begin

@@ -2,6 +2,8 @@
 // Simulation blind schematic copy version
 // Sean Gonsalves 2022
 // k051962: Plane data processor
+// Gets 8px rows from the GFX ROMs, selects which pixel must be used (fine scrolling)
+// and delays pixel + COL values for each layer so that they're output all at the same time
 
 `timescale 1ns/100ps
 
@@ -14,8 +16,8 @@ module k051962 (
 	output P1H,
 	
 	input CRCS,
-	input BEN,
-	input RMRD,	// Unused, only used on the real chip to set the DB pins direction
+	input BEN,		// Reg 1E80 write
+	input RMRD,		// Unused, only usefull on the real chip to set the DB pins direction
 	input ZA1H, ZA2H, ZA4H,	// Plane A fine scroll
 	input ZB1H, ZB2H, ZB4H,	// Plane B fine scroll
 	input [7:0] COL,			// Tile COL attribute bits
@@ -25,8 +27,9 @@ module k051962 (
 	// Layers
 	output reg [11:0] DSA,
 	output reg [11:0] DSB,
-	output reg [7:0] DFI,
+	output reg [7:0] DFI,	// Fix layer can only use COL[3:0]
 	
+	// Opacity signals
 	output NSAC,
 	output NSBC,
 	output NFIC,
@@ -47,51 +50,69 @@ module k051962 (
 	output DB_DIR
 );
 
-wire [3:0] Z99_Q;
-wire [3:0] AA108_Q;
+wire [8:0] PXH;
 
 // TIMING GEN
 
+// Reset input sync
 FDE BB8(clk_24M, 1'b1, nRES, RES_SYNC, );
 
-FDN Z4(clk_24M, Z4_nQ, RES_SYNC, clk_12M, Z4_nQ);
-FDN Z47(clk_24M, ~^{Z47_nQ, Z4_nQ}, RES_SYNC, clk_6M, Z47_nQ);
-assign T70 = clk_6M;
+// Clocks
+FDN Z4(clk_24M, nclk_12M, RES_SYNC, clk_12M, nclk_12M);
+FDN Z47(clk_24M, ~^{nclk_6M, nclk_12M}, RES_SYNC, clk_6M, nclk_6M);
 FDG Z68(clk_24M, clk_6M, RES_SYNC, , T61);
-FDN Z19(clk_24M, ~^{Z19_Q, ~&{Z47_nQ, Z4_nQ}}, RES_SYNC, Z19_Q, );
+FDN Z19(clk_24M, ~^{clk_3M, ~&{nclk_6M, nclk_12M}}, RES_SYNC, clk_3M, );
 
-assign V154 = ~&{P1H, Z99_Q[1:0]};
-assign X80 = ~&{P1H, ~Z99_Q[1:0]};
-assign X78 = ~&{P1H, Z99_Q[1], ~Z99_Q[0]};
+// GFX data latch sequence
+assign V154 = ~&{PXH[2:0]};
+assign X80 = ~&{~PXH[2:1], PXH[0]};
+assign X78 = ~&{PXH[2], ~PXH[1], PXH[0]};
 
-FDG AA86(T70, ~LINE_END & (OHBK | (Z99_COUT & AA108_Q[1])), RES_SYNC, OHBK, AA86_nQ);
-FDN Z81(Z99_Q[3], ~&{AA86_nQ, Z80}, RES_SYNC, Z81_Q);
-FDN Z88(Z99_Q[2], Z81_Q, RES_SYNC, Z88_Q);
-FDN Y86(Z99_Q[0], Z88_Q, RES_SYNC, NHSY);
+// NHSY generation
+FDG AA86(clk_6M, ~LINE_END & (OHBK | (Z99_COUT & PXH[6])), RES_SYNC, OHBK, AA86_nQ);
+FDN Z81(PXH[4], ~&{AA86_nQ, Z80}, RES_SYNC, Z81_Q);
+FDN Z88(PXH[3], Z81_Q, RES_SYNC, Z88_Q);
+FDN Y86(PXH[1], Z88_Q, RES_SYNC, NHSY);
 
-FDG Y100(T70, Y151, RES_SYNC, Y100_Q);
+// NHBK generation
+assign Y151 = PXH[0] & PXH[3] & ~|{PXH[2:1]};
+FDG Y100(clk_6M, Y151, RES_SYNC, Y100_Q);
 FDG AA77(Y100_Q, OHBK, RES_SYNC, NHBK);
 
-FDG BB87(T70, ~^{BB87_nQ, LINE_END}, RES_SYNC, BB87_Q, BB87_nQ);
-assign LINE_END = &{Z99_COUT, AA108_Q[3:2]};
-//assign AA102 = ~AA105;	// /LINE_END
-assign BB101 = BB87_Q;	// Ignore test mode
-assign BB103 = LINE_END & BB87_Q;
+FDG Z59(clk_24M, clk_3M, RES_SYNC, Z59_Q, );
 
-// H counters
-C43 Z99(T70, 4'b0000, ~LINE_END, Y147, Y147, RES_SYNC, Z99_Q, Z99_COUT);
-C43 AA108(T70, 4'b0001, ~LINE_END, Z99_COUT, Z99_COUT, RES_SYNC, AA108_Q, );
-assign Z80 = ~AA108_Q[1];
+// H counter
+// 9-bit counter, resets to 9'h020 after 9'h19F, effectively counting 384 pixels
+FDG Y77(clk_6M, Z59_Q, RES_SYNC, PXH[0], );
+C43 Z99(clk_6M, 4'b0000, ~LINE_END, PXH[0], PXH[0], RES_SYNC, PXH[4:1], Z99_COUT);
+C43 AA108(clk_6M, 4'b0001, ~LINE_END, Z99_COUT, Z99_COUT, RES_SYNC, PXH[8:5], );
+assign P1H = PXH[0];
+assign Z80 = ~PXH[6];
 
-// V counters
-wire [3:0] BB105_Q;
-C43 BB105(T70, 4'b1100, ~CC107_COUT, BB101, BB103, RES_SYNC, BB105_Q, BB105_COUT);
-wire [3:0] CC107_Q;
-C43 CC107(T70, 4'b0111, ~CC107_COUT, BB101, BB105_COUT, RES_SYNC, CC107_Q, CC107_COUT);
+assign LINE_END = &{Z99_COUT, PXH[8:7]};
 
-FDG CC87(BB105_Q[3], &{CC107_Q[2:0]}, RES_SYNC, BB78, NVBK);
-LTL CC98(CC107_Q[3], NHSY, RES_SYNC, NVSY);
+// V counter
+// 9-bit counter, resets to 9'h0F8 after 9'h1FF, effectively counting 264 raster lines
+wire [8:0] ROW;
+FDG BB87(clk_6M, ~^{LINE_END, ~ROW[0]}, RES_SYNC, ROW[0], );
+C43 BB105(clk_6M, 4'b1100, ~CC107_COUT, ROW[0], LINE_END & ROW[0], RES_SYNC, ROW[4:1], BB105_COUT);
+C43 CC107(clk_6M, 4'b0111, ~CC107_COUT, ROW[0], BB105_COUT, RES_SYNC, ROW[8:5], CC107_COUT);
+
+// Vblank output at line 9h'1F8
+FDG CC87(ROW[4], &{ROW[7:5]}, RES_SYNC, VBK, NVBK);
+LTL CC98(ROW[8], NHSY, RES_SYNC, NVSY);
 assign NCSY = NVSY & NHSY;
+
+// 8-frame delay for RES -> RST
+// Same in k052109
+reg [7:0] RES_delay;
+always @(posedge VBK or negedge RES_SYNC) begin
+	if (!RES_SYNC)
+		RES_delay <= 8'h00;
+	else
+		RES_delay <= {RES_delay[6:0], RES_SYNC};
+end
+assign RST = RES_delay[7];
 
 
 // ROM READBACK MUX
@@ -108,48 +129,32 @@ end
 
 // SCROLLING
 
-reg [7:0] RES_delay;
-always @(posedge BB78 or negedge RES_SYNC) begin
-	if (!RES_SYNC)
-		RES_delay <= 8'h00;
-	else
-		RES_delay <= {RES_delay[6:0], 1'b1};
-end
-assign RST = RES_delay[7];
+// Reg 1E80
+FDG S77(BEN, DB_IN[0], RES_SYNC, FLIP_SCREEN);
+FDG S86(BEN, DB_IN[1], RES_SYNC, TILE_FLIP_X_EN);
 
-FDG S77(BEN, DB_IN[0], RES_SYNC, S77_Q);
-FDG S86(BEN, DB_IN[1], RES_SYNC, S86_Q);
+// COL[0] delayed twice
+FDM J61(CLK_6M, H13 ? ~J61_nQ : COL[0], , J61_nQ);
+FDM K83(CLK_6M, K153 ? ~K83_nQ : J61_nQ, , K83_nQ);
 
-FDM J61(L67, H13 ? ~J61_nQ : COL[0], , J61_nQ);
-FDM K83(L106, K153 ? ~K83_nQ : J61_nQ, , K83_nQ);
+// COL[0] delayed once
+FDM M61(CLK_6M, M52 ? ~M61_nQ : COL[0], , M61_nQ);
 
-FDM M61(M69, M52 ? ~M61_nQ : COL[0], , M61_nQ);
-
-assign P87 = ~&{S86_Q, K83_nQ} ^ S77_Q;
-assign S102 = ~&{S86_Q, M61_nQ} ^ S77_Q;
-assign S106 = ~&{S86_Q, DSA[10]} ^ S77_Q;
-
-assign L77 = ~&{ZB1H, ZB2H, ZB4H};
-assign L79 = ZB4H ^ P87;
-assign L83 = ZB2H ^ P87;
-assign L87 = ZB1H ^ P87;
+assign FLIP_X_A = ~&{TILE_FLIP_X_EN, DSA[10]} ^ FLIP_SCREEN;
+assign FLIP_X_B = ~&{TILE_FLIP_X_EN, K83_nQ} ^ FLIP_SCREEN;
+assign FLIP_X_F = ~&{TILE_FLIP_X_EN, M61_nQ} ^ FLIP_SCREEN;
 
 assign T19 = ~&{ZA1H, ZA2H, ZA4H};
-assign T15 = ZA4H ^ S106;
-assign T11 = ZA2H ^ S106;
-assign T7 = ZA1H ^ S106;
+wire [2:0] PX_SEL_A;
+assign PX_SEL_A = {ZA4H, ZA2H, ZA1H} ^ {3{FLIP_X_A}};
 
-FDG Z59(clk_24M, Z19_Q, RES_SYNC, Z59_Q, );
-FDG Y77(T70, Z59_Q, RES_SYNC, Y77_Q, );
-assign P1H = Y77_Q;
-assign Y147 = Y77_Q;
+assign L77 = ~&{ZB1H, ZB2H, ZB4H};
+wire [2:0] PX_SEL_B;
+assign PX_SEL_B = {ZB4H, ZB2H, ZB1H} ^ {3{FLIP_X_B}};
 
-FDG X116(Z99_Q[0], Z99_Q[1], RES_SYNC, X116_Q);
-assign X102 = P1H ^ S102;
-assign X108 = X116_Q ^ S102;
-assign X112 = ~Z99_Q[0] ^ S102;
-
-assign Y151 = Y77_Q & Z99_Q[2] & ~|{Z99_Q[1:0]};
+FDG X116(PXH[1], PXH[2], RES_SYNC, X116_Q);
+wire [2:0] PX_SEL_F;
+assign PX_SEL_F = {X116_Q, ~PXH[1], P1H} ^ {3{FLIP_X_F}};
 
 // Layer A 8-pixel row color delay
 // VC[31:24]: Color bits 3
@@ -159,7 +164,7 @@ assign Y151 = Y77_Q & Z99_Q[2] & ~|{Z99_Q[1:0]};
 reg [31:0] LA_DELAY_A;
 reg [31:0] LA_DELAY_B;
 reg [31:0] LA_DELAY_C;
-always @(posedge T70) begin
+always @(posedge clk_6M) begin
 	if (!X78) LA_DELAY_A <= VC;
 	if (!V154) LA_DELAY_B <= LA_DELAY_A;
 	if (!T19) LA_DELAY_C <= LA_DELAY_B;
@@ -168,7 +173,7 @@ end
 // Select pixel depending on fine X scroll
 reg [3:0] LA_COLOR;
 always @(*) begin
-	case({T15, T11, T7})
+	case(PX_SEL_A)
 		3'd0: LA_COLOR <= {LA_DELAY_C[24], LA_DELAY_C[16], LA_DELAY_C[8], LA_DELAY_C[0]};
 		3'd1: LA_COLOR <= {LA_DELAY_C[25], LA_DELAY_C[17], LA_DELAY_C[9], LA_DELAY_C[1]};
 		3'd2: LA_COLOR <= {LA_DELAY_C[26], LA_DELAY_C[18], LA_DELAY_C[10], LA_DELAY_C[2]};
@@ -184,7 +189,7 @@ end
 reg [7:0] LA_PAL_DELAY_A;
 reg [7:0] LA_PAL_DELAY_B;
 reg [3:0] LA_PAL_DELAY_C;
-always @(posedge T70) begin
+always @(posedge clk_6M) begin
 	if (!X78) LA_PAL_DELAY_A <= COL;
 	if (!V154) LA_PAL_DELAY_B <= LA_PAL_DELAY_A;
 	if (!T19) begin
@@ -205,7 +210,7 @@ end
 // VC[7:0]: Color bits 0
 reg [31:0] LB_DELAY_A;
 reg [31:0] LB_DELAY_B;
-always @(posedge T70) begin
+always @(posedge clk_6M) begin
 	if (!V154) LB_DELAY_A <= VC;
 	if (!L77) LB_DELAY_B <= LB_DELAY_A;
 end
@@ -213,7 +218,7 @@ end
 // Select pixel depending on fine X scroll
 reg [3:0] LB_COLOR;
 always @(*) begin
-	case({L79, L83, L87})
+	case(PX_SEL_B)
 		3'd0: LB_COLOR <= {LB_DELAY_B[24], LB_DELAY_B[16], LB_DELAY_B[8], LB_DELAY_B[0]};
 		3'd1: LB_COLOR <= {LB_DELAY_B[25], LB_DELAY_B[17], LB_DELAY_B[9], LB_DELAY_B[1]};
 		3'd2: LB_COLOR <= {LB_DELAY_B[26], LB_DELAY_B[18], LB_DELAY_B[10], LB_DELAY_B[2]};
@@ -228,7 +233,7 @@ end
 // Layer B palette delay
 reg [7:0] LB_PAL_DELAY_A;
 reg [3:0] LB_PAL_DELAY_B;
-always @(posedge T70) begin
+always @(posedge clk_6M) begin
 	if (!V154) LB_PAL_DELAY_A <= COL;
 	if (!L77) begin
 		DSB[11:8] <= LB_PAL_DELAY_A[3:0];
@@ -248,14 +253,14 @@ end
 // VC[15:8]: Color bits 1
 // VC[7:0]: Color bits 0
 reg [31:0] LF_DELAY_A;
-always @(posedge T70) begin
+always @(posedge clk_6M) begin
 	if (!X80) LF_DELAY_A <= VC;
 end
 
 // Select pixel
 reg [3:0] LF_COLOR;
 always @(*) begin
-	case({X108, X112, X102})
+	case(PX_SEL_F)
 		3'd0: LF_COLOR <= {LF_DELAY_A[24], LF_DELAY_A[16], LF_DELAY_A[8], LF_DELAY_A[0]};
 		3'd1: LF_COLOR <= {LF_DELAY_A[25], LF_DELAY_A[17], LF_DELAY_A[9], LF_DELAY_A[1]};
 		3'd2: LF_COLOR <= {LF_DELAY_A[26], LF_DELAY_A[18], LF_DELAY_A[10], LF_DELAY_A[2]};
@@ -269,7 +274,7 @@ end
 
 // Layer Fix palette delay
 reg [3:0] LF_PAL_DELAY_A;
-always @(posedge T70) begin
+always @(posedge clk_6M) begin
 	if (!X80) LF_PAL_DELAY_A <= COL[7:4];
 end
 
