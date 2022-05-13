@@ -62,6 +62,9 @@ integer f_video;
 reg record_pixels;
 reg prev_V6M, prev_NHBK;
 
+reg [3:0] d_init;
+integer f_init;
+
 initial begin
 	f_video = $fopen("C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/log_video.txt", "w");
 	
@@ -103,9 +106,22 @@ initial begin
 	P_start <= 4'b1111;
 	P_coin <= 4'b1111;
 	service <= 4'b1111;
-
+	
 	#100
 	reset <= 1'b0;
+	
+	#2
+	// Preset k052109 registers 1D80 and 1F00 with values from MAME savestate
+	f_init = $fopen("C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/vram_bg_banks.bin", "rb");
+	$fread(d_init, f_init);
+	DUT.PLANES.k052109_1.REG1D80[3:0] <= d_init;
+	$fread(d_init, f_init);
+	DUT.PLANES.k052109_1.REG1D80[7:4] <= d_init;
+	$fread(d_init, f_init);
+	DUT.PLANES.k052109_1.REG1F00[3:0] <= d_init;
+	$fread(d_init, f_init);
+	DUT.PLANES.k052109_1.REG1F00[7:4] <= d_init;
+	$fclose(f_init);
 	
 	//#50000
 	//$stop();

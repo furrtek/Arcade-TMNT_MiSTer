@@ -27,6 +27,7 @@ module sprites(
 	wire clk_12M;
 	wire PQ;
 	wire [31:0] spr_rom_dout;
+	wire [31:0] spr_rom_planar;
 	wire [8:0] HP;
 	wire [7:0] OC;
 	wire [17:0] CA;
@@ -59,9 +60,9 @@ module sprites(
 		.HVIN(HVOT),
 		
 		.PQ(PQ), .PE(PE),
-
+		
 		.NRD(NREAD), .OBCS(ODTAC),
-
+		
 		.AB({AB[10:1], nUDS}),
 		
 		.DB_OUT(DB_OUT_k051960),
@@ -69,11 +70,11 @@ module sprites(
 		.DB_DIR(DBDIR_k051960),
 		
 		.OHF(OHF), .OREG(OREG), .HEND(HEND), .LACH(LACH), .CARY(CARY),
-
+		
 		.HP(HP),
 		.OC(OC),
 		.CA(CA),
-
+		
 		.OA_out(OA),
 		.OWR(OWR), .OOE(OOE),
 		.OD_in(OD_in),
@@ -84,7 +85,50 @@ module sprites(
 	ram_sim #(8, 10, "") RAM_SPR(OA, OWR, 1'b0, OD_out, OD_in);		// 1k * 8
 	
 	// ../../sim/roms/
-	rom_sim #(32, 20, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_sprites_32.txt") ROM_SPRITES(CA, spr_rom_dout);	// 512k * 32
+	rom_sim #(32, 19, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_sprites_32.txt") ROM_SPRITES({OC[4], CA}, spr_rom_dout);	// 512k * 32
+	
+	// Chunky to planar (routing on PCB)
+	assign spr_rom_planar = {
+		spr_rom_dout[31],	// V
+		spr_rom_dout[27],	// R
+		spr_rom_dout[23],	// N
+		spr_rom_dout[19],	// J
+		
+		spr_rom_dout[15],	// F
+		spr_rom_dout[11],	// B
+		spr_rom_dout[7],	// 7
+		spr_rom_dout[3],	// 3
+		
+		spr_rom_dout[30],	// U
+		spr_rom_dout[26],	// Q
+		spr_rom_dout[22],	// M
+		spr_rom_dout[18],	// I
+		
+		spr_rom_dout[14],	// E
+		spr_rom_dout[10],	// A
+		spr_rom_dout[6],	// 6
+		spr_rom_dout[2],	// 2
+		
+		spr_rom_dout[29],	// T
+		spr_rom_dout[25],	// P
+		spr_rom_dout[21],	// L
+		spr_rom_dout[17],	// H
+		
+		spr_rom_dout[13],	// D
+		spr_rom_dout[9],	// 9
+		spr_rom_dout[5],	// 5
+		spr_rom_dout[1],	// 1
+		
+		spr_rom_dout[28],	// S
+		spr_rom_dout[24],	// O
+		spr_rom_dout[20],	// K
+		spr_rom_dout[16],	// G
+		
+		spr_rom_dout[12],	// C
+		spr_rom_dout[8],	// 8
+		spr_rom_dout[4],	// 4
+		spr_rom_dout[0]	// 0
+	};
 	
 	reg [9:1] CA_DEC;
 	wire [3:0] PROM_dout;
@@ -121,12 +165,12 @@ module sprites(
 		.SHAD(SHA), .NCOO(NOBJ),
 		.OB(OB),
 
-		.CD0(spr_rom_dout[7:0]),
-		.CD1(spr_rom_dout[15:8]),
-		.CD2(spr_rom_dout[23:16]),
-		.CD3(spr_rom_dout[31:24]),
+		.CD0(spr_rom_planar[7:0]),
+		.CD1(spr_rom_planar[15:8]),
+		.CD2(spr_rom_planar[23:16]),
+		.CD3(spr_rom_planar[31:24]),
 
-		.OC(OC),
+		.OC({OC[7:5], 1'b0, OC[3:0]}),
 		.HP(HP),
 		
 		.CARY(CARY), .LACH(LACH), .HEND(HEND), .OREG(OREG), .OHF(OHF)

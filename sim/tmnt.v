@@ -52,6 +52,8 @@ module top (
 	input [3:0] dipswitch3
 );
 
+parameter CPU_RUN = 0;		// DEBUG
+
 wire [23:1] m68k_addr;
 reg [15:0] m68k_din;
 wire [15:0] m68k_dout;
@@ -104,16 +106,18 @@ always @(posedge ~NVBLK or negedge INT16EN) begin
 		OIPL <= 1'b0;
 end
 
+wire [23:1] m68k_addr_pre;
+wire nAS_pre;
 cpu_68k CPU68K(
-	.clk(clk_main),
-	.nRESET(~reset),
+	.clk(CPU_RUN ? clk_main : 1'b0),
+	.nRESET(~reset & CPU_RUN),
 	.IPL2(OIPL), .IPL1(1'b1), .IPL0(OIPL),
 	.nDTACK(nDTACK),
-	.M68K_ADDR(m68k_addr),
+	.M68K_ADDR(m68k_addr_pre),
 	.FX68K_DATAIN(m68k_din),
 	.FX68K_DATAOUT(m68k_dout),
 	.nLDS(nLDS), .nUDS(nUDS),
-	.nAS(nAS),
+	.nAS(nAS_pre),
 	.M68K_RW(m68k_rw),
 	.FC2(FC2), .FC1(FC1), .FC0(FC0),
 	.nBG(nBG),
@@ -121,9 +125,12 @@ cpu_68k CPU68K(
 	.nBGACK(1'b1)
 );
 
-assign NLWR = nLDS | m68k_rw;
-assign NUWR = nUDS | m68k_rw;
-assign PDS = ~&{nLDS, nUDS};
+assign m68k_addr = CPU_RUN ? m68k_addr_pre : 23'h000000;
+assign nAS = nAS_pre | ~CPU_RUN;
+
+assign NLWR = nLDS | m68k_rw | ~CPU_RUN;
+assign NUWR = nUDS | m68k_rw | ~CPU_RUN;
+assign PDS = ~&{nLDS, nUDS, CPU_RUN};
 
 reg [7:0] U47;	// CPU LS138
 always @(*) begin
@@ -234,7 +241,7 @@ end
 
 wire [15:1] AB = m68k_addr[15:1];	// Just 2x LS245 buffers
 
-assign NREAD = ~m68k_rw;
+assign NREAD = ~m68k_rw | ~CPU_RUN;
 assign OVCS = ~&{m68k_addr[20], ~nAS};
 assign OBJCS = ~((m68k_addr[18:17] == 2'd2) & ~OVCS);
 assign VRAMCS = ~((m68k_addr[18:17] == 2'd0) & ~OVCS);

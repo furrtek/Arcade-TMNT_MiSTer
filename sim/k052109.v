@@ -44,7 +44,7 @@ module k052109 (
 	output [2:0] RWE,
 	
 	// GFX ROMs interface
-	output [2:1] CAB,
+	output reg [2:1] CAB,
 	output [10:0] VC,
 	
 	output VDE,	// ?
@@ -442,14 +442,21 @@ assign F130 = &{clk_6M, REG1C00[5], ~PXH[0]};
 wire [7:0] COL_MUX;
 assign COL_MUX = F130 ? COL_ATTR_B : COL_ATTR_A;
 
-wire [1:0] COL_MUX_A;
-assign COL_MUX_A = COL_MUX[2] ?
-							COL_MUX[3] ? {REG1F00[5:4]} : {REG1D80[5:4]} :
-							COL_MUX[3] ? {REG1F00[1:0]} : {REG1D80[1:0]};
+// COL_MUX[3:2]	{CAB, COL[3:2] out (COL_MUX_A)}
+// 0					REG1D80[3:0]
+// 1					REG1D80[7:4]
+// 2					REG1F00[3:0]
+// 3					REG1F00[7:4]
 
-assign CAB = COL_MUX[2] ?
-					COL_MUX[3] ? {REG1F00[7:6]} : {REG1D80[7:6]} :
-					COL_MUX[3] ? {REG1F00[3:2]} : {REG1D80[3:2]};
+reg [1:0] COL_MUX_A;
+always @(*) begin
+	case(COL_MUX[3:2])
+		2'd0: {CAB, COL_MUX_A} <= REG1D80[3:0];
+		2'd1: {CAB, COL_MUX_A} <= REG1D80[7:4];
+		2'd2: {CAB, COL_MUX_A} <= REG1F00[3:0];
+		2'd3: {CAB, COL_MUX_A} <= REG1F00[7:4];
+	endcase
+end
 	
 assign COL = RMRD ? RMRD_BANK : {COL_MUX[7:4], REG1C00[5] ? COL_MUX[3:2] : COL_MUX_A, COL_MUX[1:0]};
 

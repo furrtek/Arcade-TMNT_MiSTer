@@ -103,11 +103,13 @@ module planes(
 	);
 
 	// Tile VRAM
-	ram_sim #(8, 13, "") RAM_TILES_U(RA, RWE[1], RCS[1], VD_OUT[15:8], VD_IN[15:8]);		// 8k * 8
-	ram_sim #(8, 13, "") RAM_TILES_L(RA, RWE[2], 1'b0, VD_OUT[7:0], VD_IN[7:0]);			// 8k * 8
+	ram_sim #(8, 13, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/vram_bg_L_8.txt") RAM_TILES_U(RA, RWE[1], RCS[1], VD_OUT[15:8], VD_IN[15:8]);		// 8k * 8
+	ram_sim #(8, 13, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/vram_bg_U_8.txt") RAM_TILES_L(RA, RWE[2], 1'b0, VD_OUT[7:0], VD_IN[7:0]);			// 8k * 8
 
 	assign tiles_rom_addr = {CAB, COL[3:2], COL[4], COL[1:0], VC};
-
+	// COL[3:2] in VRAM -> mapped to nibbles from regs 1D80 and 1F00 to {CAB, COL[3:2]} (2 to 4 bit indirection)
+	// 10 00 0 xx nnnnnnnn rrr
+	
 	// ../../sim/roms/
 	rom_sim #(32, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_tiles_32.txt") ROM_TILES(tiles_rom_addr, tiles_rom_dout);	// 256k * 32
 
@@ -119,7 +121,7 @@ module planes(
 		tiles_rom_dout[19],	// J
 		
 		tiles_rom_dout[15],	// F
-		tiles_rom_dout[11],	// 9
+		tiles_rom_dout[11],	// B
 		tiles_rom_dout[7],	// 7
 		tiles_rom_dout[3],	// 3
 		
@@ -174,7 +176,7 @@ module planes(
 		
 		.ZA1H(ZA1H), .ZA2H(ZA2H), .ZA4H(ZA4H),	// From k052109
 		.ZB1H(ZB1H), .ZB2H(ZB2H), .ZB4H(ZB4H),	// From k052109
-		.COL({COL[7:5], 5'b00000}),	// From k052109 (partially)
+		.COL({COL[7:5], 5'b00000}),	// From k052109 (partially) - Only 3 bits used for tile palette selection
 		
 		.VC(tiles_rom_planar),		// GFX ROM data
 		

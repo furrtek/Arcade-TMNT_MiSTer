@@ -23,16 +23,19 @@ wire [dataBits-1:0] d_init;
 reg [dataBits-1:0] data[0:(2**addrBits)-1];
 
 initial begin
-	/*f_init = $fopen(initFile, "rb");
-    for (i = 0; i < (2**addrBits); i+=1) begin
-		$fread(d_init, f_init);
-	    data[i] <= d_init;
-	end
-	$fclose(f_init);*/
-	
-	// Clear to zero
-	for (i = 0; i < (2**addrBits); i=i+1) begin
-		data[i] <= {dataBits{1'b0}};
+	if (initFile != "") begin
+		/*f_init = $fopen(initFile, "rb");
+		 for (i = 0; i < (2**addrBits); i=i+1) begin
+			$fread(d_init, f_init);
+			 data[i] <= d_init;
+		end
+		$fclose(f_init);*/
+		$readmemh(initFile, data);
+	end else begin
+		// Clear to zero
+		for (i = 0; i < (2**addrBits); i=i+1) begin
+			data[i] <= {dataBits{1'b0}};
+		end
 	end
 end
 
