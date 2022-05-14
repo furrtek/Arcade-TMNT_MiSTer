@@ -205,7 +205,7 @@ assign VC = RMRD ? CPU_ROM_A : RENDER_ROM_A;
 assign VD_OUT = {DB_IN, DB_IN};
 
 // Reset input sync
-FDE N122(clk_24M, 1'b1, nRES, RES_SYNC);
+FDE N122(clk_24M, 1'b1, nRES, RES_SYNC, );
 
 // 8-frame delay for RES -> RST
 // Same in k051962
@@ -220,7 +220,7 @@ end
 assign RST = RES_delay[7];
 
 // Interrupt flags
-// Same in k051962 ?
+// Same in k051960
 FDN P4(TRIG_IRQ, 1'b0, REG1D00[2], IRQ);
 FDN F27(TRIG_FIRQ, 1'b0, REG1D00[1], FIRQ);
 FDN CC52(TRIG_NMI, 1'b0, REG1D00[0], NMI);
