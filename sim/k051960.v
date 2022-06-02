@@ -192,12 +192,12 @@ assign OD_out = DB_IN;
 
 // Internal RAM WEs
 wire Z95;
-assign RAM_A_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b001};
-assign RAM_B_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b010};
+assign RAM_A_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b110};
+assign RAM_B_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b101};
 assign RAM_C_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b011};
 assign RAM_D_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b100};
-assign RAM_E_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b101};
-assign RAM_F_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b110};
+assign RAM_E_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b010};
+assign RAM_F_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b001};
 assign RAM_G_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b111};
 
 // Internal RAM address - 8-to-1 bus mux
