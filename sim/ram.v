@@ -39,10 +39,26 @@ initial begin
 	end
 end
 
-always @(*) begin
-	if (!nwe & !nen)
+reg write /* synthesis noprune */;
+/*always @(*) begin
+	//if (!(nwe | nen)) begin
+	if (!nwe) begin
+		if (!nen) begin
+			#1 data[address] <= din;
+			write <= 1;
+		end else
+			write <= 0;
+	end else
+		write <= 0;
+end*/
+always @(posedge ~nen) begin
+	if (!nwe) begin
 		#1 data[address] <= din;
+	end
 end
+
+always @(*)
+	write <= (nwe | nen);
 
 always @(*) begin
 	#1 dout <= data[address];

@@ -116,7 +116,7 @@ cpu_68k CPU68K(
 	.M68K_ADDR(m68k_addr_pre),
 	.FX68K_DATAIN(m68k_din),
 	.FX68K_DATAOUT(m68k_dout),
-	.nLDS(nLDS), .nUDS(nUDS),
+	.nLDS(nLDS), .nUDS(nUDS_pre),
 	.nAS(nAS_pre),
 	.M68K_RW(m68k_rw),
 	.FC2(FC2), .FC1(FC1), .FC0(FC0),
@@ -127,6 +127,7 @@ cpu_68k CPU68K(
 
 assign m68k_addr = CPU_RUN ? m68k_addr_pre : 23'h000000;
 assign nAS = nAS_pre | ~CPU_RUN;
+assign nUDS = nUDS_pre | ~CPU_RUN;
 
 assign NLWR = nLDS | m68k_rw | ~CPU_RUN;
 assign NUWR = nUDS | m68k_rw | ~CPU_RUN;
@@ -323,8 +324,8 @@ planes PLANES(
 	.SYNC(video_sync)
 );
 
-assign NOBJ = 1'b0;	// DEBUG
-assign SHA = 1'b0;	// DEBUG
+//assign NOBJ = 1'b0;	// DEBUG
+//assign SHA = 1'b0;	// DEBUG
 
 sprites SPRITES(
 	.reset(reset),
@@ -346,7 +347,7 @@ sprites SPRITES(
 	.DB_OUT_k051937(DB_OUT_k051937),
 	.DBDIR_k051937(DBDIR_k051937),
 	
-	.SHA(), .NOBJ(),	// DEBUG .SHA(SHA), .NOBJ(NOBJ)
+	.SHA(SHA), .NOBJ(NOBJ),	// DEBUG .SHA(SHA), .NOBJ(NOBJ)
 	.OB(OB),
 	
 	.ODTAC(ODTAC)

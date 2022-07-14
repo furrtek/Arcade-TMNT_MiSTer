@@ -22,6 +22,8 @@ for pixel in pixels:
 		y += 1
 	elif pixel == "V":
 		print("Frame done")
+		x = 0
+		y = 0
 	else:
 		if "x" in pixel or "z" in pixel:
 			r = 255			# Undefined value

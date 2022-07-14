@@ -192,7 +192,7 @@ always @(*) begin
 end
 
 // Catch tile number from VRAM
-always @(posedge ~PXH[0])
+always @(negedge PXH[0])
 	RENDER_ROM_A[10:3] <= VD_IN[7:0];
 
 // Select between rendering and CPU ROM reading
@@ -430,7 +430,7 @@ k052109_scroll SCROLL_B(
 // Catch tile attributes for layer A and B (notation may be swapped)
 // Fix attribute must go in one of these alternatively
 reg [7:0] COL_ATTR_A;
-always @(posedge ~PXH[0])
+always @(negedge PXH[0])
 	COL_ATTR_A <= VD_IN[15:8];
 	
 reg [7:0] COL_ATTR_B;

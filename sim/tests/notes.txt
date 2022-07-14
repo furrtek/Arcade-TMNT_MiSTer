@@ -1,19 +1,24 @@
-051960 sprite address gen:
+051960 sprite address gen notes
 
-RAM A: ATTR6 zoom x
-RAM B: ATTR5 pos y
-RAM C: ATTR3 color
-RAM D: ATTR4 zoom y
-RAM E: ATTR2 code low
-RAM F: ATTR1 size and code high
-RAM G: ATTR7 pos x
+Use vram_spr_decode.py to list sprite attributes from VRAM dump.
 
-The sprite X position goes right from internal RAM G to
-the HP* outputs
+The external RAM to internal RAM copy process is done during vblank. The chip's reset state makes it
+start at the end of vblank so a full frame needs to go by until the first copy is done.
+For simulation, the V counter reset values are modified so the 1st vblank happens sooner.
 
-The sprite color bits go right from internal RAM C to
-the OC* outputs
-The OC* outputs are also used in ROM reading mode:
+Internal RAM data latch signals:
+RAM_A	nLACH		ATTR6	Zoom X, flip X, X position MSB
+RAM_B	nP1		ATTR5	Y position LSBs
+RAM_C	nLACH		ATTR3	Attributes
+RAM_D	nP1		ATTR4	Zoom Y, flip Y, Y position MSB
+RAM_E	nP1/nLACH	ATTR2	Tile code LSBs
+RAM_F	nP1/nLACH	ATTR1	Sprite size, tile code MSBs
+RAM_G	nLACH		ATTR7	X position LSBs
+
+The 9-bit sprite X position goes straight from internal {RAM_A[0], RAM_G} to the HP* outputs for k051937
+The sprite "color" bits go straight from internal RAM C to the OC* outputs for k051937
+
+The OC* outputs are also used in ROM reading mode. How are these used by the k051937 ?
 REG3_D2 -> OC0
 REG3_D3 -> OC1
 REG3_D4 -> OC2
@@ -23,30 +28,54 @@ REG3_D7 -> OC5
 REG4_D0 -> OC6
 REG4_D1 -> OC7
 
-One ROM read = 8-pixel row
+One ROM read = one 8px row
+One tile = 16*16px = four 8*8px subtiles = 4*8 8px rows = 32 rows (CA[4:0])
+CA[2:0] is the row number in the subtile
+CA[3] is the horizontal subtile, 0=Left 1=Right ?
+CA[4] is the vertical subtile, 0=Top 1=Down ?
 
-ATTR2_0 -> CA5
-ATTR2_2 -> CA7
-ATTR2_4 -> CA9
-ATTR2_6 -> CA11
-ATTR1_0 -> CA13
-ATTR1_1 -> CA14
-ATTR1_2 -> CA15
-ATTR1_3 -> CA16
-ATTR1_4 -> CA17
+Latched bus	From		Latched on	Processing stages...
+SPR_CODE[0]	RAM_E_D[0]	nLACH		AC256(T5A)	M12		CA5
+SPR_CODE[1]	RAM_E_D[1]	nP1		Delay M6	AP183(T5A)	4x latches
+SPR_CODE[2]	RAM_E_D[2]	nLACH		AC256(T5A)	M12		CA7
+SPR_CODE[3]	RAM_E_D[3]	nP1		Delay M6	AP171(T5A)	4x latches	
+SPR_CODE[4]	RAM_E_D[4]	nLACH		AC196(T5A)	M12		CA9
+SPR_CODE[5]	RAM_E_D[5]	nP1		Delay M6	AP166(T5A)	4x latches
+SPR_CODE[6]	RAM_E_D[6]	nLACH				M12		CA11
+SPR_CODE[7]	RAM_E_D[7]	nLACH				M12		CA12
 
+SPR_CODE[8]	RAM_F_D[0]	nLACH				M12		CA13
+SPR_CODE[9]	RAM_F_D[1]	nLACH				M12		CA14
+SPR_CODE[10]	RAM_F_D[2]	nLACH				M12		CA15
+SPR_CODE[11]	RAM_F_D[3]	nLACH				M12		CA16
+SPR_CODE[12]	RAM_F_D[4]	nLACH				M12		CA17
+
+SPR_SIZE[0]	RAM_F_D[5]	nP1 + nLACH
+SPR_SIZE[1]	RAM_F_D[6]	nP1 + nLACH
+SPR_SIZE[2]	RAM_F_D[7]	nP1 + nLACH
+
+The sprite tile code serves as a base to generate the tile numbers required to form the entire sprite
 Tile code masking according to sprite size:
 Size W   H CA:A98765 Tiles H64+ A    9    8    7    6    5
 000  16  16  ------- 1     0    ATTR ATTR ATTR ATTR ATTR ATTR
-001  32  16  ------x 2     0    ATTR ATTR ATTR ATTR ATTR CtX
-010  16  32  -----x- 2     0    ATTR ATTR ATTR ATTR CtY  ATTR
-011  32  32  -----xx 4     0    ATTR ATTR ATTR ATTR CtY  CtX
-100  64  32  ----xxx 8     1    ATTR ATTR ATTR CtX  CtY  CtX
-101  32  64  ---x-xx 8     0    ATTR ATTR CtY  ATTR CtY  CtX
-110  64  64  ---xxxx 16    1    ATTR ATTR CtY  CtX  CtY  CtX
-111  128 128 -xxxxxx 64    1    CtY  CtX  CtY  CtX  CtY  CtX
+001  32  16  ------x 2     0    ATTR ATTR ATTR ATTR ATTR CtX0
+010  16  32  -----x- 2     0    ATTR ATTR ATTR ATTR CtY0 ATTR
+011  32  32  -----xx 4     0    ATTR ATTR ATTR ATTR CtY0 CtX0
+100  64  32  ----xxx 8     1    ATTR ATTR ATTR CtX1 CtY0 CtX0
+101  32  64  ---x-xx 8     0    ATTR ATTR CtY1 ATTR CtY0 CtX0
+110  64  64  ---xxxx 16    1    ATTR ATTR CtY1 CtX1 CtY0 CtX0
+111  128 128 -xxxxxx 64    1    CtY2 CtX2 CtY1 CtX1 CtY0 CtX0
 
+{H64+, Size[0]} indicates the sprite's width:
+         Tiles  Subtiles(8*8)
+00 16px  1	2
+01 32px  2	4
+10 64px  4	8
+11 128px 8	16
 
+For each CA[10:5] there are two choices: direct code from internal RAM (ATTR), or output from CounterX/Y
+
+     CA:A98765
 16x16: -------
 0
 
@@ -77,53 +106,63 @@ Size W   H CA:A98765 Tiles H64+ A    9    8    7    6    5
 8  9  12 13
 10 11 14 15
 
+128x128: -xxxxxx
+0  1  4  5  16 17 20 21
+2  3  6  7  18 19 22 23
+8  9  12 13 24 25 28 29
+10 11 14 15 26 27 30 31
+32 33 36 37 48 49 52 53
+34 35 38 39 50 51 54 55
+40 41 44 45 56 57 60 61
+42 43 46 47 58 59 62 63
 
-SIZE0 H64+ CA5
-0     0    ATTR2_0
-0     1    CounterX1
-1     0    CounterX1
-1     1    CounterX1
+AC256 mux for CA5:
+H64+ SIZE0 CA5       Tiles
+0    0     ATTR2_0   1
+0    1     CounterX1 2
+1    0     CounterX1 4
+1    1     CounterX1 8
+Full decode:
+000  0	   ATTR2_0
+001  0     CounterX1
+010  0	   ATTR2_0
+011  0     CounterX1
+100  1	   CounterX1
+101  0     CounterX1
+110  1     CounterX1
+111  1     CounterX1
 
-000   0	   ATTR2_0
-001   0    CounterX1
-010   0	   ATTR2_0
-011   0    CounterX1
-100   1	   CounterX1
-101   0    CounterX1
-110   1    CounterX1
-111   1    CounterX1
+AC268 mux for CA7:
+H64+ SIZE0 CA7       Tiles
+0    0     ATTR2_2   1
+0    1     ATTR2_2   2
+1    0     CounterX2 4
+1    1     CounterX2 8
+Full decode:
+000  0	   ATTR2_2
+001  0     ATTR2_2
+010  0	   ATTR2_2
+011  0     ATTR2_2
+100  1	   CounterX2
+101  0     ATTR2_2
+110  1     CounterX2
+111  1     CounterX2
 
-
-SIZE0 H64+ CA7
-0     0    ATTR2_2
-0     1    CounterX2
-1     0    ATTR2_2
-1     1    CounterX2
-
-000   0	   ATTR2_2
-001   0    ATTR2_2
-010   0	   ATTR2_2
-011   0    ATTR2_2
-100   1	   CounterX2
-101   0    ATTR2_2
-110   1    CounterX2
-111   1    CounterX2
-
-
-SIZE0 H64+ CA9
-0     0    ATTR2_4
-0     1    ATTR2_4
-1     0    ATTR2_4
-1     1    CounterX3
-
-000   0	   ATTR2_4
-001   0    ATTR2_4
-010   0	   ATTR2_4
-011   0    ATTR2_4
-100   1	   ATTR2_4
-101   0    ATTR2_4
-110   1    ATTR2_4
-111   1    CounterX3
+AC196 mux for CA9:
+H64+ SIZE0 CA9       Tiles
+0    0     ATTR2_4   1
+0    1     ATTR2_4   2
+1    0     ATTR2_4   4
+1    1     CounterX3 8
+Full decode:
+000  0	   ATTR2_4
+001  0     ATTR2_4
+010  0	   ATTR2_4
+011  0     ATTR2_4
+100  1	   ATTR2_4
+101  0     ATTR2_4
+110  1     ATTR2_4
+111  1     CounterX3
 
 x 8px block counter (AB233) mapping should be:
 CounterX0 -> BlockX (CA3)
@@ -137,8 +176,8 @@ CounterY1 -> Code1
 CounterY2 -> Code3
 CounterY3 -> Code5
 
-AC232 mux for x sprite block counter reset:
-Size  H64+ Output when
+AC232 mux for H subtile counter stop:
+Size  H64+ Active when
 000   0	   AB233=1
 001   0    AB233=3
 010   0	   AB233=1
@@ -151,9 +190,10 @@ Size  H64+ Output when
 CA0: 8-pixel row in 8x8 block
 CA1: 8-pixel row in 8x8 block
 CA2: 8-pixel row in 8x8 block
-CA3: Block X
-CA4: Block Y
+CA3: Subtile H
+CA4: Subtile V
 CA5... : Tile code
+
 
 Y zoom stuff with cascaded adders:
 
@@ -166,6 +206,8 @@ PREV[6:1] + M6,ZOOM[5:1]*M6 + ZOOM[0]*M6*PREV[0]
 PREV[6:1] + M7,ZOOM[5:1]*M7 + ZOOM[0]*M7*PREV[0]
 
 Output: PREV[6:0],AJ141,AL147
+
+Output = YMATCH * (1 + ZOOM/64)
 
 
 Normal test net states:
@@ -180,3 +222,69 @@ TEST_AB4: Low
 TEST_AB5: Low
 TEST_AB6: Low
 TEST_AB7: High
+
+
+V counter counts from 0F8 to 1FF (264 lines in total)
+VBlank is between 1F0 included and 110 excluded (40 lines, 264 - 40 = 224 active lines)
+1 1111 0000 1F0 start -> 1FF
+1 0001 0000 0F8 -> 110 stop
+First active line is 110h
+
+Internal RAM address can come from:
+OA_IN		Test mode
+PARSE_A		Parsing for rendering
+ATTR_A		For clearing
+SPR_PRIO	For ext RAM copy
+
+
+
+
+TMNT titlescreen MAME state notes:
+The TMNT logo is made of sprites
+Fix attributes: all zeroes
+Layer A attributes: all zeroes
+Layer B attributes: all 20's
+A x,y = FFA0, 0
+Fix codes: lots of 10's (clear tile), Konami logo, text
+Layer A codes: all 10's (clear)
+Layer B codes: all 33's (blue background)
+
+In total 13 sprites active out of 128.
+Sprites 0 to 6 in external RAM -> 79 to 73 in internal RAM: 7x 64*64 one for each letter of the logo (T U R T L E S)
+Sprites 9 to 12 -> 70 to 67: 4x 64*32 "TEENAGE MUTANT NINJA" banner
+
+First sprite match should be #67 at line 16 (raw 120h) (rightmost sprite of banner), 64/8=8 subtiles copied
+The top 8 lines of the sprite are transparent (see MAME tile viewer)
+Size must be 100
+
+First activity at line 1EF (120-1 OK)
+For address 67, RAM B dout = SPR_ATTR_Y = E0 = 224 OK
+Output of Y pos + line number adder = SPR_YMATCH = 0 OK
+SPR_ATTR_ZY = 0 OK
+Output of mul MUL_REG = SPR_YMATCH * (1 + SPR_ATTR_ZY/64) = 0 OK
+
+C130 parse count disabled for a short moment at the start of each new line OK
+Parse address doesn't stall when sprite #67 is encountered. Problem with C94 ?
+C94 always low -> parse counter always enabled
+C94 can only go high when J148=0 M116=1 B122_XQ=1
+HEND high when given sprite's entire row is drawn
+AB122 low resets the given sprite's h tile counter -> resets HEND
+HEND always low because counter always loaded to 0 because AB122 always low
+
+TMNT attract1 MAME state notes:
+Fix attributes: HUD, GAME OVER
+Layer A attributes: Partially used ?
+Layer B attributes: Main stage bg
+A x,y = 00EC, 0
+Fix codes: lots of 10's (clear tile), Konami logo, text
+Layer A codes: all 10's (clear)
+Layer B codes: all 33's (blue background)
+
+
+
+051937 line buffers notes:
+
+RAM A, B, C, D form a pair of LBs - C, D = Shadow bits
+RAM E, F, G, H form the other pair of LBs - G, H = Shadow bits
+PAIR high render to ABCD, clear EFGH
+PAIR low  render to EFGH, clear ABCD

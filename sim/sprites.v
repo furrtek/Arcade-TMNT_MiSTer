@@ -35,6 +35,9 @@ module sprites(
 	wire [7:0] OD_in;
 	wire [7:0] OD_out;
 
+	reg [9:1] CA_DEC;
+	wire [7:0] PROM_dout;
+	
 	// LS74
 	reg I20_Q;
 	always @(posedge PQ or negedge PDS) begin
@@ -82,10 +85,10 @@ module sprites(
 	);
 
 	// Sprite VRAM
-	ram_sim #(8, 10, "") RAM_SPR(OA, OWR, 1'b0, OD_out, OD_in);		// 1k * 8
+	ram_sim #(8, 10, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/vram_spr_8.txt") RAM_SPR(OA, OWR, 1'b0, OD_out, OD_in);		// 1k * 8
 	
 	// ../../sim/roms/
-	rom_sim #(32, 19, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_sprites_32.txt") ROM_SPRITES({OC[4], CA}, spr_rom_dout);	// 512k * 32
+	rom_sim #(32, 19, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_sprites_32.txt") ROM_SPRITES({OC[4], CA[17:10], CA_DEC, CA[3]}, spr_rom_dout);	// 512k * 32
 	
 	// Chunky to planar (routing on PCB)
 	assign spr_rom_planar = {
@@ -130,9 +133,7 @@ module sprites(
 		spr_rom_dout[0]	// 0
 	};
 	
-	reg [9:1] CA_DEC;
-	wire [3:0] PROM_dout;
-	rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/prom_sprdec_8.txt") ROM_SPRDEC({CAJ, CA[17:10], CA_DEC, CA[3]}, PROM_dout);	// 256 * 8
+	rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/prom_sprdec_8.txt") ROM_SPRDEC({OC[4], CA[17:11]}, PROM_dout);	// 256 * 8
 	
 	always @(*) begin
 		case(PROM_dout[2:0])
@@ -162,7 +163,7 @@ module sprites(
 		.DB_IN(DB_IN),
 		.DB_DIR(DBDIR_k051937),
 		
-		.SHAD(SHA), .NCOO(NOBJ),
+		.SHAD(SHA), .NCO0(NOBJ),
 		.OB(OB),
 
 		.CD0(spr_rom_planar[7:0]),

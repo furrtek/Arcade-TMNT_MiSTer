@@ -68,7 +68,8 @@ integer f_init;
 initial begin
 	f_video = $fopen("C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/log_video.txt", "w");
 	
-	record_pixels <= 1'b0;
+	//record_pixels <= 1'b0;
+	record_pixels <= 1'b1;
 	prev_V6M <= 1'b0;
 	prev_NHBK <= 1'b0;
 	
@@ -158,8 +159,8 @@ always @(posedge clk) begin
 	end
 	
 	// Ignore first "frame"
-	if (DUT.PLANES.k052109_1.ROW == 8'hFF)
-		record_pixels <= 1'b1;
+	//if (DUT.PLANES.k052109_1.ROW == 8'hFF)
+	//	record_pixels <= 1'b1;
 	
 	prev_V6M <= DUT.V6M;
 	prev_NHBK <= DUT.PLANES.NHBK;
