@@ -26,15 +26,15 @@ module TMNTColor(
 	wire [7:0] RAM_DOUT_HIGH;
 	reg [15:0] COL;
 	wire [15:0] COL_OUT;
-	wire [5:0] RED;
-	wire [5:0] GREEN;
-	wire [5:0] BLUE;
+	wire [4:0] RED;
+	wire [4:0] GREEN;
+	wire [4:0] BLUE;
 	wire [15:0] I;
 	
 	always @(posedge V6M)
 		C_REG <= {C_REG[11], SHADOW, NCBLK, CD};
 	
-	assign {nCOE, CR} = COLCS ? {1'b0, 1'b0, C_REG[9:0]} : {NREAD, AB[12:2]};
+	assign {nCOE, CR} = COLCS ? {2'b00, C_REG[9:0]} : {NREAD, AB[12:2]};
 	// nCOE useless ?
 
 	assign I[7:0] = (~COLCS & AB[1] & NREAD) ? CPU_DIN : 8'bzzzzzzzz;
@@ -54,8 +54,8 @@ module TMNTColor(
 	assign GREEN = COL[15] ? COL[9:5] : 5'd0;
 	assign BLUE = COL[15] ? COL[14:10] : 5'd0;
 	
-	assign RED_OUT = C_REG[10] ? {RED, RED[0]} : {1'b0, RED};
-	assign GREEN_OUT = C_REG[10] ? {GREEN, GREEN[0]} : {1'b0, GREEN};
-	assign BLUE_OUT = C_REG[10] ? {BLUE, BLUE[0]} : {1'b0, BLUE};
+	assign RED_OUT = C_REG[12] ? {RED, RED[0]} : {1'b0, RED};
+	assign GREEN_OUT = C_REG[12] ? {GREEN, GREEN[0]} : {1'b0, GREEN};
+	assign BLUE_OUT = C_REG[12] ? {BLUE, BLUE[0]} : {1'b0, BLUE};
 	
 endmodule

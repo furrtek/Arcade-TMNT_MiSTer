@@ -361,7 +361,7 @@ always @(*) begin
 	case(prio_dout[1:0])
 		2'd0: CD <= {2'b10, 1'b0, VA[7:5], VA[3:0]};	// VA[4] unused
 		2'd1: CD <= {2'b10, 1'b1, VB[7:5], VB[3:0]};	// VB[4] unused
-		2'd2: CD <= {2'b01, OB[7:0]};						// Sprites
+		2'd2: CD <= {2'b01, OB[7:4], OB[0], OB[1], OB[2], OB[3]};	// Sprites
 		2'd3: CD <= {2'b00, 1'b0, FX[7:5], FX[3:0]};	// FX[4] unused
 	endcase
 end

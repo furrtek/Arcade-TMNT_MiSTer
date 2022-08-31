@@ -173,8 +173,8 @@ module sprites(
 
 		.OC({OC[7:5], 1'b0, OC[3:0]}),
 		.HP(HP),
-		
-		.CARY(CARY), .LACH(LACH), .HEND(HEND), .OREG(OREG), .OHF(OHF)
+		// DEBUG CARY
+		.CARY(1'b0), .LACH(LACH), .HEND(HEND), .OREG(OREG), .OHF(OHF)
 	);
 	
 endmodule

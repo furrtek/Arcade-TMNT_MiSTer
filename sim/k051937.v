@@ -27,6 +27,7 @@ module k051937 (
 	output SHAD, NCO0, PCOF,
 	output [11:0] OB,
 
+	// Bitplanes in
 	input [7:0] CD0,
 	input [7:0] CD1,
 	input [7:0] CD2,
@@ -43,8 +44,8 @@ module k051937 (
 );
 
 wire nHVIN_DELAY, F103_Q, AN106_Q, AL36, AV104;
-wire AR71, AR104_Q, AH64, PAIR, nPAIR, AR135_XQ;
-wire AR128_Q, AR128_XQ, AR135_Q, AR104_XQ;
+wire NEW_SPR, AR104_Q, AH64, PAIR, nPAIR, AR135_XQ;
+wire SPR_HFLIP, AR135_Q, AR104_XQ;
 
 wire [3:0] SH1_OUT;	// 3 ODD
 wire [3:0] SH2_OUT;	// 2 ODD
@@ -72,7 +73,7 @@ wire [11:0] RAM_B_DIN;
 wire [11:0] RAM_E_DIN;
 wire [11:0] RAM_F_DIN;
 
-ram_sim #(12, 8, "") RAMA(RAM_ABCD_A, ~RAM_A_WE, RAM_ABCD_EN, RAM_A_DIN, RAM_A_DOUT);
+/*ram_sim #(12, 8, "") RAMA(RAM_ABCD_A, ~RAM_A_WE, RAM_ABCD_EN, RAM_A_DIN, RAM_A_DOUT);
 ram_sim #(12, 8, "") RAMB(RAM_ABCD_A, ~RAM_B_WE, RAM_ABCD_EN, RAM_B_DIN, RAM_B_DOUT);
 ram_sim #(1, 8, "") RAMC(RAM_ABCD_A, ~RAM_C_WE, RAM_ABCD_EN, RAM_C_DIN, RAM_C_DOUT);
 ram_sim #(1, 8, "") RAMD(RAM_ABCD_A, ~RAM_D_WE, RAM_ABCD_EN, RAM_D_DIN, RAM_D_DOUT);
@@ -80,7 +81,17 @@ ram_sim #(1, 8, "") RAMD(RAM_ABCD_A, ~RAM_D_WE, RAM_ABCD_EN, RAM_D_DIN, RAM_D_DO
 ram_sim #(12, 8, "") RAME(RAM_EFGH_A, ~RAM_E_WE, RAM_EFGH_EN, RAM_E_DIN, RAM_E_DOUT);
 ram_sim #(12, 8, "") RAMF(RAM_EFGH_A, ~RAM_F_WE, RAM_EFGH_EN, RAM_F_DIN, RAM_F_DOUT);
 ram_sim #(1, 8, "") RAMG(RAM_EFGH_A, ~RAM_G_WE, RAM_EFGH_EN, RAM_G_DIN, RAM_G_DOUT);
-ram_sim #(1, 8, "") RAMH(RAM_EFGH_A, ~RAM_H_WE, RAM_EFGH_EN, RAM_H_DIN, RAM_H_DOUT);
+ram_sim #(1, 8, "") RAMH(RAM_EFGH_A, ~RAM_H_WE, RAM_EFGH_EN, RAM_H_DIN, RAM_H_DOUT);*/
+
+ram_sync_sim #(12, 8, "") RAMA(RAM_ABCD_A, ~RAM_A_WE, RAM_ABCD_EN, RAM_A_DIN, RAM_A_DOUT);
+ram_sync_sim #(12, 8, "") RAMB(RAM_ABCD_A, ~RAM_B_WE, RAM_ABCD_EN, RAM_B_DIN, RAM_B_DOUT);
+ram_sync_sim #(1, 8, "") RAMC(RAM_ABCD_A, ~RAM_C_WE, RAM_ABCD_EN, RAM_C_DIN, RAM_C_DOUT);
+ram_sync_sim #(1, 8, "") RAMD(RAM_ABCD_A, ~RAM_D_WE, RAM_ABCD_EN, RAM_D_DIN, RAM_D_DOUT);
+
+ram_sync_sim #(12, 8, "") RAME(RAM_EFGH_A, ~RAM_E_WE, RAM_EFGH_EN, RAM_E_DIN, RAM_E_DOUT);
+ram_sync_sim #(12, 8, "") RAMF(RAM_EFGH_A, ~RAM_F_WE, RAM_EFGH_EN, RAM_F_DIN, RAM_F_DOUT);
+ram_sync_sim #(1, 8, "") RAMG(RAM_EFGH_A, ~RAM_G_WE, RAM_EFGH_EN, RAM_G_DIN, RAM_G_DOUT);
+ram_sync_sim #(1, 8, "") RAMH(RAM_EFGH_A, ~RAM_H_WE, RAM_EFGH_EN, RAM_H_DIN, RAM_H_DOUT);
 
 // DEBUG
 /*always @(*) begin
@@ -205,8 +216,8 @@ assign DB_DIR = NRD | &{nROMRD};	// AAD151 AAD142
 
 // SHIFTERS
 
-SHIFTER SH1(clk_12M, {~AS84_XQ, ~AS90_XQ}, {CD3[7], CD3[5], CD3[3], CD3[1]}, SH1_OUT);
-SHIFTER SH2(clk_12M, {~AS84_XQ, ~AS90_XQ}, {CD2[7], CD2[5], CD2[3], CD2[1]}, SH2_OUT);
+SHIFTER SH1(clk_12M, {~AS84_XQ, ~AS90_XQ}, {CD2[7], CD2[5], CD2[3], CD2[1]}, SH1_OUT);
+SHIFTER SH2(clk_12M, {~AS84_XQ, ~AS90_XQ}, {CD3[7], CD3[5], CD3[3], CD3[1]}, SH2_OUT);
 SHIFTER SH3(clk_12M, {~AS84_XQ, ~AS90_XQ}, {CD1[7], CD1[5], CD1[3], CD1[1]}, SH3_OUT);
 SHIFTER SH4(clk_12M, {~AS84_XQ, ~AS90_XQ}, {CD0[7], CD0[5], CD0[3], CD0[1]}, SH4_OUT);
 
@@ -220,30 +231,30 @@ FDM AS129(clk_12M, AR110_Q, AS129_Q, AS129_XQ);
 wire [3:0] PIXELA;
 wire [3:0] PIXELB;
 
-assign AP158 = ~|{(SH8_OUT[0] & AR128_Q), (SH4_OUT[3] & AR128_XQ)};
-assign AP162 = ~|{(SH4_OUT[0] & AR128_Q), (SH8_OUT[3] & AR128_XQ)};
-assign AP156 = ~|{(SH8_OUT[0] & ~AR128_XQ), (SH4_OUT[3] & AR128_XQ)};
+assign AP158 = ~|{(SH8_OUT[0] & ~SPR_HFLIP), (SH4_OUT[3] & SPR_HFLIP)};
+assign AP162 = ~|{(SH4_OUT[0] & ~SPR_HFLIP), (SH8_OUT[3] & SPR_HFLIP)};
+assign AP156 = ~|{(SH8_OUT[0] & ~SPR_HFLIP), (SH4_OUT[3] & SPR_HFLIP)};
 FDM AW89(clk_12M, AP156, AW89_Q, );
 assign PIXELA[3] = ~&{|{AP158, AS129_Q, AR135_Q}, |{AP162, AS129_XQ, AR135_Q}};
 assign PIXELB[3] = ~&{|{AP162, AS129_Q, AR104_XQ}, |{AW89_Q, AS129_XQ, AR104_XQ}};
 
-assign AP152 = ~|{(SH6_OUT[0] & AR128_Q), (SH1_OUT[3] & AR128_XQ)};
-assign AR142 = ~|{(SH1_OUT[0] & AR128_Q), (SH6_OUT[3] & AR128_XQ)};
-assign AP150 = ~|{(SH6_OUT[0] & ~AR128_XQ), (SH1_OUT[3] & AR128_XQ)};
+assign AP152 = ~|{(SH6_OUT[0] & ~SPR_HFLIP), (SH1_OUT[3] & SPR_HFLIP)};
+assign AR142 = ~|{(SH1_OUT[0] & ~SPR_HFLIP), (SH6_OUT[3] & SPR_HFLIP)};
+assign AP150 = ~|{(SH6_OUT[0] & ~SPR_HFLIP), (SH1_OUT[3] & SPR_HFLIP)};
 FDM AW104(clk_12M, AP150, AW104_Q, );
 assign PIXELA[1] = ~&{|{AP152, AS129_Q, AR135_Q}, |{AR142, AS129_XQ, AR135_Q}};
 assign PIXELB[1] = ~&{|{AR142, AS129_Q, AR104_XQ}, |{AW104_Q, AS129_XQ, AR104_XQ}};
 
-assign AP154 = ~|{(SH7_OUT[0] & AR128_Q), (SH3_OUT[3] & AR128_XQ)};
-assign AP160 = ~|{(SH3_OUT[0] & AR128_Q), (SH7_OUT[3] & AR128_XQ)};
-assign AP142 = ~|{(SH7_OUT[0] & ~AR128_XQ), (SH3_OUT[3] & AR128_XQ)};
+assign AP154 = ~|{(SH7_OUT[0] & ~SPR_HFLIP), (SH3_OUT[3] & SPR_HFLIP)};
+assign AP160 = ~|{(SH3_OUT[0] & ~SPR_HFLIP), (SH7_OUT[3] & SPR_HFLIP)};
+assign AP142 = ~|{(SH7_OUT[0] & ~SPR_HFLIP), (SH3_OUT[3] & SPR_HFLIP)};
 FDM AW95(clk_12M, AP142, AW95_Q, );
 assign PIXELA[2] = ~&{|{AP154, AS129_Q, AR135_Q}, |{AP160, AS129_XQ, AR135_Q}};
 assign PIXELB[2] = ~&{|{AP160, AS129_Q, AR104_XQ}, |{AW95_Q, AS129_XQ, AR104_XQ}};
 
-assign AX128 = ~|{(SH5_OUT[0] & AR128_Q), (SH1_OUT[3] & AR128_XQ)};
-assign AX93 = ~|{(SH1_OUT[0] & AR128_Q), (SH5_OUT[3] & AR128_XQ)};
-assign AX130 = ~|{(SH5_OUT[0] & ~AR128_XQ), (SH1_OUT[3] & AR128_XQ)};
+assign AX128 = ~|{(SH5_OUT[0] & ~SPR_HFLIP), (SH2_OUT[3] & SPR_HFLIP)};
+assign AX93 = ~|{(SH2_OUT[0] & ~SPR_HFLIP), (SH5_OUT[3] & SPR_HFLIP)};
+assign AX130 = ~|{(SH5_OUT[0] & ~SPR_HFLIP), (SH2_OUT[3] & SPR_HFLIP)};
 FDM AX132(clk_12M, AX130, AX132_Q, );
 assign PIXELA[0] = ~&{|{AX128, AS129_Q, AR135_Q}, |{AX93, AS129_XQ, AR135_Q}};
 assign PIXELB[0] = ~&{|{AX93, AS129_Q, AR104_XQ}, |{AX132_Q, AS129_XQ, AR104_XQ}};
@@ -252,7 +263,7 @@ assign PIXELB[0] = ~&{|{AX93, AS129_Q, AR104_XQ}, |{AX132_Q, AS129_XQ, AR104_XQ}
 // ROOT SHEET 3
 
 // Render counters
-wire [8:0] RENDERH;
+wire [8:1] RENDERH;
 C43 G89(clk_12M, HP[4:1], AP71_Q, AM104_Q, AM104_Q, 1'b1, RENDERH[4:1], G89_CO);
 C43 S89(clk_12M, HP[8:5], AP71_Q, G89_CO, G89_CO, 1'b1, RENDERH[8:5], );
 
@@ -266,10 +277,10 @@ assign CD3_OUT = ~nROMRD[3] ? DB_IN : 8'h00;
 // PALETTE LATCHES
 
 wire [3:0] AG64_Q;
-assign AG104 = ~&{(AR71 | OC[4]),(AG64_Q[0] | AH64)};
-assign AG85 = ~&{(AR71 | OC[5]),(AG64_Q[1] | AH64)};
-assign AG87 = ~&{(AR71 | OC[6]),(AG64_Q[2] | AH64)};
-assign AH96 = ~&{(AR71 | OC[7]),(AG64_Q[3] | AH64)};
+assign AG104 = ~&{(NEW_SPR | OC[4]),(AG64_Q[0] | AH64)};
+assign AG85 = ~&{(NEW_SPR | OC[5]),(AG64_Q[1] | AH64)};
+assign AG87 = ~&{(NEW_SPR | OC[6]),(AG64_Q[2] | AH64)};
+assign AH96 = ~&{(NEW_SPR | OC[7]),(AG64_Q[3] | AH64)};
 FDS AG64(clk_12M, {~AH96, ~AG87, ~AG85, ~AG104}, AG64_Q);
 
 wire [3:0] AF4_Q;
@@ -311,17 +322,17 @@ FDM AE135(AK13, ~&{AE104_Q[0], ~PAIR}, AE135_Q, );
 FDM AE129(AK13, ~&{AE104_Q[1], ~PAIR}, AE129_Q, );
 FDM AE95(AK13, ~&{AE104_Q[2], ~PAIR}, AE95_Q, );
 FDM AF92(AK13, ~&{AE104_Q[3], ~PAIR}, AF92_Q, );
-assign RAM_E_DIN[8] = ~AE104_Q;	// Test mode ignored
+assign RAM_E_DIN[8] = ~AE135_Q;	// Test mode ignored
 assign RAM_E_DIN[9] = ~AE129_Q;	// Test mode ignored
 assign RAM_E_DIN[10] = ~AE95_Q;	// Test mode ignored
 assign RAM_E_DIN[11] = ~AF92_Q;	// Test mode ignored
 
 
 wire [3:0] AG4_Q;
-assign AH85 = ~&{(AR71 | OC[0]),(AG64_Q[0] | AH64)};
-assign AH87 = ~&{(AR71 | OC[1]),(AG64_Q[1] | AH64)};
-assign AH90 = ~&{(AR71 | OC[2]),(AG64_Q[2] | AH64)};
-assign AH93 = ~&{(AR71 | OC[3]),(AG64_Q[3] | AH64)};
+assign AH85 = ~&{(NEW_SPR | OC[0]),(AG4_Q[0] | AH64)};
+assign AH87 = ~&{(NEW_SPR | OC[1]),(AG4_Q[1] | AH64)};
+assign AH90 = ~&{(NEW_SPR | OC[2]),(AG4_Q[2] | AH64)};
+assign AH93 = ~&{(NEW_SPR | OC[3]),(AG4_Q[3] | AH64)};
 FDS AG4(clk_12M, {~AH93, ~AH90, ~AH87, ~AH85}, AG4_Q);
 
 wire [3:0] AG24_Q;
@@ -352,10 +363,10 @@ FDM W89(AJ1, ~&{AC89_Q[0], PAIR}, W89_Q, );
 FDM Z108(AJ1, ~&{AC89_Q[1], PAIR}, Z108_Q, );
 FDM W112(AJ1, ~&{AC89_Q[2], PAIR}, W112_Q, );
 FDM Z95(AJ1, ~&{AC89_Q[3], PAIR}, Z95_Q, );
-assign RAM_B_DIN[7] = ~W89_Q;		// Test mode ignored
-assign RAM_B_DIN[6] = ~Z108_Q;	// Test mode ignored
-assign RAM_B_DIN[5] = ~W112_Q;	// Test mode ignored
-assign RAM_B_DIN[4] = ~Z95_Q;		// Test mode ignored
+assign RAM_B_DIN[4] = ~W89_Q;		// Test mode ignored
+assign RAM_B_DIN[5] = ~Z108_Q;	// Test mode ignored
+assign RAM_B_DIN[6] = ~W112_Q;	// Test mode ignored
+assign RAM_B_DIN[7] = ~Z95_Q;		// Test mode ignored
 
 wire [3:0] AC109_Q;
 FDS AC109(clk_12M, AG4_Q, AC109_Q);
@@ -363,10 +374,10 @@ FDM W95(AJ1, ~&{AC109_Q[0], PAIR}, W95_Q, );
 FDM Z89(AJ1, ~&{AC109_Q[1], PAIR}, Z89_Q, );
 FDM W106(AJ1, ~&{AC109_Q[2], PAIR}, W106_Q, );
 FDM Y89(AJ1, ~&{AC109_Q[3], PAIR}, Y89_Q, );
-assign RAM_A_DIN[7] = ~W95_Q;		// Test mode ignored
-assign RAM_A_DIN[6] = ~Z89_Q;		// Test mode ignored
-assign RAM_A_DIN[5] = ~&W106_Q;	// Test mode ignored
-assign RAM_A_DIN[4] = ~Y89_Q;		// Test mode ignored
+assign RAM_A_DIN[4] = ~W95_Q;		// Test mode ignored
+assign RAM_A_DIN[5] = ~Z89_Q;		// Test mode ignored
+assign RAM_A_DIN[6] = ~W106_Q;	// Test mode ignored
+assign RAM_A_DIN[7] = ~Y89_Q;		// Test mode ignored
 
 
 // LB ADDRESS
@@ -426,30 +437,6 @@ assign RAM_ABCD_A[0] = ~N128;		// Test mode ignored
 assign RAM_ABCD_A = PAIR ? RENDERH[8:1] : PXH[8:1] ^ {8{AB95_Q}};
 assign RAM_EFGH_A = PAIR ? PXH[8:1] ^ {8{AB95_Q}} : RENDERH[8:1];
 
-
-wire [3:0] AH4_Q;
-FDS AH4(clk_12M, PIXELB, AH4_Q);
-FDM AF56(AK13, ~&{AH4_Q[0], ~PAIR}, AF56_Q, );
-FDM AF24(AK13, ~&{AH4_Q[1], ~PAIR}, AF24_Q, );
-FDM AF133(AK13, ~&{AH4_Q[2], ~PAIR}, AF133_Q, );
-FDM AF127(AK13, ~&{AH4_Q[3], ~PAIR}, AF127_Q, );
-assign RAM_E_DIN[0] = ~AF56_Q;		// Test mode ignored
-assign RAM_E_DIN[1] = ~AF24_Q;		// Test mode ignored
-assign RAM_E_DIN[2] = ~AF133_Q;		// Test mode ignored
-assign RAM_E_DIN[3] = ~AF127_Q;		// Test mode ignored
-
-wire [3:0] AJ23_Q;
-FDS AJ23(clk_12M, PIXELB, AJ23_Q);
-FDM V96(AJ1, ~&{AJ23_Q[0], PAIR}, V96_Q, );
-FDM V90(AJ1, ~&{AJ23_Q[1], PAIR}, V90_Q, );
-FDM R110(AJ1, ~&{AJ23_Q[2], PAIR}, R110_Q, );
-FDM T129(AJ1, ~&{AJ23_Q[3], PAIR}, T129_Q, );
-assign RAM_A_DIN[0] = ~V96_Q;			// Test mode ignored
-assign RAM_A_DIN[1] = ~V90_Q;			// Test mode ignored
-assign RAM_A_DIN[2] = ~R110_Q;		// Test mode ignored
-assign RAM_A_DIN[3] = ~T129_Q;		// Test mode ignored
-
-
 // REG 1
 
 assign AG191 = ~|{(RAM_C_DOUT & ~PAIR), (RAM_G_DOUT & PAIR)};
@@ -494,25 +481,25 @@ FDO AT96(clk_24M, AT189_Q, RES_SYNC, AT96_Q, );
 FDO AV89(clk_24M, ~&{AT106_XQ, AT96_Q, NRD}, RES_SYNC, AV104, );
 
 
-assign AR73 = ~|{(AR128_XQ & AR71), (OHF & ~AR71)};
-FDM AR128(clk_12M, AR73, AR128_Q, AR128_XQ);
+assign AR73 = ~|{(SPR_HFLIP & NEW_SPR), (OHF & ~NEW_SPR)};
+FDM AR128(clk_12M, AR73, , SPR_HFLIP);
 
 assign AAC98 = |{AV104, OREG, AB[1:0]};
 FDO AM90(AAC98, DB_IN[5], RES_SYNC, , nROMRDEN);
 
 
 assign AN116 = HVIN & nRES;
-FDN AN130(clk_12M, ~^{AP134, AN130_XQ}, AN116, AN130_Q, AN130_XQ);
-FDN AN106(clk_12M, AN130_Q, AN116, AN106_Q, AN106_XQ);
+FDN AN130(clk_12M, ~^{AP134, ~FLIP}, AN116, FLIP, );
+FDN AN106(clk_12M, FLIP, AN116, AN106_Q, AN106_XQ);
 assign PAIR = AN106_Q;		// Must be delayed !
 //assign nPAIR = AN106_XQ;	// Must be delayed !
 
 
 FDM AR16(~clk_12M, ~|{~PXH[0], clk_6M}, AR16_Q, );
-assign AS34 = ~|{(AR16_Q & ~OHF), (1'b1 & OHF)};
+assign AS34 = ~|{AR16_Q & ~OHF, 1'b1 & OHF};
 FDM AS90(clk_12M, AS34, , AS90_XQ);
 
-assign AS36 = ~|{(1'b1 & ~OHF), (AR16_Q & OHF)};
+assign AS36 = ~|{1'b1 & ~OHF, AR16_Q & OHF};
 FDM AS84(clk_12M, AS36, , AS84_XQ);
 
 // RAM block WEs
@@ -581,7 +568,7 @@ assign RAOE = &{(1'b0 | ~nROMRDEN), (NRD | nROMRDEN)};
 assign OB = PARITY_SEL_REG;
 assign SHAD = ~AL203;
 
-// ROOT SHEET 9
+// PIXEL LATCHES
 
 wire [3:0] AH24_Q;
 FDS AH24(clk_12M, PIXELA, AH24_Q);
@@ -596,14 +583,36 @@ assign RAM_F_DIN[3] = ~AF36_Q;		// Test mode ignored
 
 wire [3:0] AH44_Q;
 FDS AH44(clk_12M, PIXELA, AH44_Q);
-FDM W132(AK13, ~&{AH44_Q[0], PAIR}, W132_Q, );
-FDM V108(AK13, ~&{AH44_Q[1], PAIR}, V108_Q, );
-FDM T135(AK13, ~&{AH44_Q[2], PAIR}, T135_Q, );
-FDM V131(AK13, ~&{AH44_Q[3], PAIR}, V131_Q, );
+FDM W132(AJ1, ~&{AH44_Q[0], PAIR}, W132_Q, );
+FDM V108(AJ1, ~&{AH44_Q[1], PAIR}, V108_Q, );
+FDM T135(AJ1, ~&{AH44_Q[2], PAIR}, T135_Q, );
+FDM V131(AJ1, ~&{AH44_Q[3], PAIR}, V131_Q, );
 assign RAM_B_DIN[0] = ~W132_Q;		// Test mode ignored
 assign RAM_B_DIN[1] = ~V108_Q;		// Test mode ignored
 assign RAM_B_DIN[2] = ~T135_Q;		// Test mode ignored
 assign RAM_B_DIN[3] = ~V131_Q;		// Test mode ignored
+
+wire [3:0] AH4_Q;
+FDS AH4(clk_12M, PIXELB, AH4_Q);
+FDM AF56(AK13, ~&{AH4_Q[0], ~PAIR}, AF56_Q, );
+FDM AF24(AK13, ~&{AH4_Q[1], ~PAIR}, AF24_Q, );
+FDM AF133(AK13, ~&{AH4_Q[2], ~PAIR}, AF133_Q, );
+FDM AF127(AK13, ~&{AH4_Q[3], ~PAIR}, AF127_Q, );
+assign RAM_E_DIN[0] = ~AF56_Q;		// Test mode ignored
+assign RAM_E_DIN[1] = ~AF24_Q;		// Test mode ignored
+assign RAM_E_DIN[2] = ~AF133_Q;		// Test mode ignored
+assign RAM_E_DIN[3] = ~AF127_Q;		// Test mode ignored
+
+wire [3:0] AJ23_Q;
+FDS AJ23(clk_12M, PIXELB, AJ23_Q);
+FDM V96(AJ1, ~&{AJ23_Q[0], PAIR}, V96_Q, );
+FDM V90(AJ1, ~&{AJ23_Q[1], PAIR}, V90_Q, );
+FDM R110(AJ1, ~&{AJ23_Q[2], PAIR}, R110_Q, );
+FDM T129(AJ1, ~&{AJ23_Q[3], PAIR}, T129_Q, );
+assign RAM_A_DIN[0] = ~V96_Q;			// Test mode ignored
+assign RAM_A_DIN[1] = ~V90_Q;			// Test mode ignored
+assign RAM_A_DIN[2] = ~R110_Q;		// Test mode ignored
+assign RAM_A_DIN[3] = ~T129_Q;		// Test mode ignored
 
 // FINAL OUTPUT
 
@@ -640,8 +649,8 @@ always @(posedge clk_12M or negedge nRES) begin
 end
 assign AR44_Q = LACH_DELAY[2];
 assign AP71_Q = LACH_DELAY[5];
-assign AR71 = LACH_DELAY[4];
-assign AH64 = ~AR71;
+assign NEW_SPR = LACH_DELAY[4];
+assign AH64 = ~NEW_SPR;
 
 // HVIN sync
 reg [7:0] DELAY_HVIN;
@@ -670,7 +679,7 @@ assign AP134 = ~AN15_DELAY[4];
 reg [6:0] NEWLINE_DELAY;
 always @(posedge clk_6M or negedge nRES) begin
 	if (!nRES) begin
-		NEWLINE_DELAY <= 7'b000000;
+		NEWLINE_DELAY <= 7'b0000000;
 	end else begin
 		NEWLINE_DELAY <= {NEWLINE_DELAY[5:0], nNEW_LINE};
 	end
