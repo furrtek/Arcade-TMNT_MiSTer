@@ -80,13 +80,13 @@ wire RAM_DATA_WR;
 
 wire [7:0] SPR_YDIFF;
 reg [2:0] SPR_SIZE;
-wire [12:0] SPR_CODE;
+reg [12:0] SPR_CODE;
 
 wire [3:0] R50_Q;
 wire [3:0] S28_Q;
 
 reg [3:0] AM195_Q;
-reg [3:0] AN195_Q;
+reg [3:2] AN195_Q;
 wire [3:0] SUBTILE_H;
 wire [5:1] TILE_CODE_PRE;
 
@@ -304,7 +304,7 @@ KREG #(8) AF1(clk_6M, RES_SYNC, {AH81_S, AH27_S, AJ141}, ~P1, MUL_REG[8:1]);
 // DELAYS / LATCHES
 // TODO: Document these
 
-wire [2:0] SPR_SIZE_DELAY;
+reg [2:0] SPR_SIZE_DELAY;
 wire [2:0] SPR_SIZE_DELAY2;
 wire SPR_CODE_DELAY1;
 wire SPR_CODE_DELAY3;
@@ -324,7 +324,6 @@ assign Y133 = ~|{ATTR_A[2:0]};
 // Y2 Y28
 KREG #(8) Y2(clk_3M, RES_SYNC, OD_in, Y133, {SPR_ACTIVE, SPR_PRIO});
 
-// TODO: These all catch {AE110, AD102, AD82, AD101} at different times
 wire [3:0] K94_Q;
 wire [3:0] G95_Q;
 wire [3:0] D124_Q;
@@ -380,21 +379,33 @@ reg [5:0] SPR_ATTR_ZX;
 reg [7:0] SPR_COL;
 reg [7:0] SPR_COL_DELAY;
 reg [1:0] AD227_Q;
-reg [4:0] SPR_CODE_REG;
 reg [7:0] SPR_ATTR_X;
 always @(posedge clk_12M or negedge RES_SYNC) begin
 	if (!RES_SYNC) begin
 		SPR_ATTR_ZX <= 6'h00;
 		SPR_COL <= 8'h00;
 		SPR_COL_DELAY <= 8'h00;
-		{SPR_SIZE, SPR_CODE_REG} <= 8'h00;
+		{SPR_SIZE, SPR_CODE[12:8]} <= 8'h00;
 		SPR_ATTR_X <= 8'h00;
+		SPR_CODE[0] <= 1'b0;
+		SPR_CODE[2] <= 1'b0;
+		SPR_CODE[4] <= 1'b0;
+		SPR_CODE[6] <= 1'b0;
+		SPR_CODE[7] <= 1'b0;
 	end else begin
 		if (!LACH) begin
 			SPR_ATTR_ZX <= RAM_A_dout[7:2];
 			SPR_COL <= RAM_C_dout;
-			{SPR_SIZE, SPR_CODE_REG} <= RAM_F_dout;
+			{SPR_SIZE, SPR_CODE[12:8]} <= RAM_F_dout;
 			SPR_ATTR_X <= RAM_G_dout;
+			
+			SPR_CODE[0] <= RAM_E_dout[0];
+			SPR_CODE[2] <= RAM_E_dout[2];
+			SPR_CODE[4] <= RAM_E_dout[4];
+			SPR_CODE[6] <= RAM_E_dout[6];
+			SPR_CODE[7] <= RAM_E_dout[7];
+			// HERE
+
 		end
 		
 		SPR_COL_DELAY <= SPR_COL;
@@ -407,7 +418,6 @@ assign HP[7:0] = SPR_ATTR_X;
 
 assign OC = ROM_READ ? {REG4, REG3[7:2]} : SPR_COL_DELAY;
 
-assign SPR_CODE[12:8] = SPR_CODE_REG;
 assign SPR_H64P = &{|{SPR_SIZE_DELAY2[1:0]}, SPR_SIZE_DELAY2[2]};
 assign SPR_W64P = &{|{SPR_SIZE[1], ~SPR_SIZE[0]}, SPR_SIZE[2]};
 // Triggers on some values of SPR_SIZE_DELAY2
@@ -432,30 +442,52 @@ KREG #(8) AH1(clk_6M, RES_SYNC, {AL191_S[3:0], AJ191_S[3:0]}, ~P1, SPR_YDIFF);
 
 
 // ROM ADDRESS GEN 2
-
 wire [3:0] J115_OUT;
+wire L101_Q, L126_Q;
 DE2 J115(L101_Q, L126_Q, J115_OUT);
 
-FDN K141(clk_6M, ~P133 ? ~TILE_ROW[0] : ~K141_XQ, RES_SYNC, , K141_XQ);
-FDN G143(clk_6M, ~P131 ? ~TILE_ROW[0] : ~G143_XQ, RES_SYNC, , G143_XQ);
-FDN F94(clk_6M, ~P137 ? ~TILE_ROW[0] : ~F94_XQ, RES_SYNC, , F94_XQ);
-FDN F145(clk_6M, ~P135 ? ~TILE_ROW[0] : ~F145_XQ, RES_SYNC, , F145_XQ);
-U24 H133({K141_XQ, J115_OUT[0]}, {G143_XQ, J115_OUT[1]}, {F94_XQ, J115_OUT[2]}, {F145_XQ, J115_OUT[3]}, H133_OUT);	// 4-to-1 mux
-FDN N126(clk_12M, ~LACH ? ~H133_OUT : ~N126_XQ, RES_SYNC, N126_Q, N126_XQ);
+reg [2:0] SEL0;
+reg [2:0] SEL1;
+reg [2:0] SEL2;
+reg [2:0] SEL3;
+always @(posedge clk_6M or negedge RES_SYNC) begin
+	if (!RES_SYNC) begin
+		SEL0 <= 3'd0;
+		SEL1 <= 3'd0;
+		SEL2 <= 3'd0;
+		SEL3 <= 3'd0;
+	end else begin
+		if (!P133)
+			SEL0 <= TILE_ROW[2:0];
+		if (!P131)
+			SEL1 <= TILE_ROW[2:0];
+		if (!P137)
+			SEL2 <= TILE_ROW[2:0];
+		if (!P135)
+			SEL3 <= TILE_ROW[2:0];
+	end
+end
 
-FDN J94(clk_6M, ~P133 ? ~TILE_ROW[1] : ~J94_XQ, RES_SYNC, , J94_XQ);
-FDN G121(clk_6M, ~P131 ? ~TILE_ROW[1] : ~G121_XQ, RES_SYNC, , G121_XQ);
-FDN F101(clk_6M, ~P137 ? ~TILE_ROW[1] : ~F101_XQ, RES_SYNC, , F101_XQ);
-FDN F125(clk_6M, ~P135 ? ~TILE_ROW[1] : ~F125_XQ, RES_SYNC, , F125_XQ);
-U24 H113({J94_XQ, J115_OUT[0]}, {G121_XQ, J115_OUT[1]}, {F101_XQ, J115_OUT[2]}, {F125_XQ, J115_OUT[3]}, H113_OUT);	// 4-to-1 mux
-FDN M132(clk_12M, ~LACH ? ~H113_OUT : M132_Q, RES_SYNC, M132_Q, );
+// J115 and the three U24's
+reg [2:0] TILE_ROW_OUT;
+always @(*) begin
+	case({L101_Q, L126_Q})
+		2'd0: TILE_ROW_OUT <= SEL0;
+		2'd1: TILE_ROW_OUT <= SEL1;
+		2'd2: TILE_ROW_OUT <= SEL2;
+		2'd3: TILE_ROW_OUT <= SEL3;
+	endcase
+end
 
-FDN J141(clk_6M, ~P133 ? ~TILE_ROW[2] : ~J141_XQ, RES_SYNC, , J141_XQ);
-FDN G128(clk_6M, ~P131 ? ~TILE_ROW[2] : ~G128_XQ, RES_SYNC, , G128_XQ);
-FDN F108(clk_6M, ~P137 ? ~TILE_ROW[2] : ~F108_XQ, RES_SYNC, , F108_XQ);
-FDN F132(clk_6M, ~P135 ? ~TILE_ROW[2] : ~F132_XQ, RES_SYNC, , F132_XQ);
-U24 H145({J141_XQ, J115_OUT[0]}, {G128_XQ, J115_OUT[1]}, {F108_XQ, J115_OUT[2]}, {F132_XQ, J115_OUT[3]}, H145_OUT);	// 4-to-1 mux
-FDN M145(clk_12M, ~LACH ? ~H145_OUT : M145_Q, RES_SYNC, M145_Q, );
+reg N126_Q, M132_Q, M145_Q;
+always @(posedge clk_12M or negedge RES_SYNC) begin
+	if (!RES_SYNC) begin
+		{M145_Q, M132_Q, N126_Q} <= 3'd0;
+	end else begin
+		if (!LACH)
+			{M145_Q, M132_Q, N126_Q} <= TILE_ROW_OUT;
+	end
+end
 
 FDR Z251(clk_12M, {SPR_HFLIP ^ SUBTILE_H[0], M145_Q, M132_Q, N126_Q}, RES_SYNC, CA_RENDER[3:0]);
 
@@ -510,10 +542,10 @@ assign SUBTILE_VFLIP = {3{SPR_VFLIP_DELAY}} ^ MUL_REG[6:4];
 reg [2:0] VTILE_SUB;
 always @(*) begin
 	case({~SPR_H64P, ~SPR_HEIGHT0})
-		2'd0: VTILE_SUB <= SUBTILE_VFLIP[2:0];														// B1
-		2'd1: VTILE_SUB <= {SPR_CODE_DELAY5, SUBTILE_VFLIP[1:0]};							// B2
+		2'd0: VTILE_SUB <= SUBTILE_VFLIP[2:0];													// B1
+		2'd1: VTILE_SUB <= {SPR_CODE_DELAY5, SUBTILE_VFLIP[1:0]};						// B2
 		2'd2: VTILE_SUB <= {SPR_CODE_DELAY5, SPR_CODE_DELAY3, SUBTILE_VFLIP[0]};	// A2
-		2'd3: VTILE_SUB <= {SPR_CODE_DELAY5, SPR_CODE_DELAY3, SPR_CODE_DELAY1};	// A1
+		2'd3: VTILE_SUB <= {SPR_CODE_DELAY5, SPR_CODE_DELAY3, SPR_CODE_DELAY1};		// A1
 	endcase
 end
 assign {TILE_CODE_PRE[5], TILE_CODE_PRE[3], TILE_CODE_PRE[1]} = VTILE_SUB;
@@ -583,19 +615,18 @@ assign #1 test2 = clk_6M;
 C43 AB233(clk_12M, 4'b0000, AB122, ~test2, X192, RES_SYNC, SUBTILE_H, );		// clk_6M must be delayed !
 
 
-// Unknown counters
+// This counter keeps track of the sprite currently being rendered - Independent from the parsing counter
 wire [6:0] COUNT_UNK;
 C43 R50(clk_6M, 4'b0000, HRST_delay[5], N121, 1'b1, RES_SYNC, R50_Q, R50_CO);
 C43 S28(clk_6M, 4'b0000, HRST_delay[5], N121, R50_CO, RES_SYNC, S28_Q, );
 assign COUNT_UNK = {S28_Q[2:0], R50_Q};
 
+// How does this work ? Why are there 4 registers keeping sprite #s for rendering ?
 KREG #(7) V53(clk_6M, RES_SYNC, COUNT_UNK, ~P133, KREG_A);
 KREG #(7) V1(clk_6M, RES_SYNC, COUNT_UNK, ~P131, KREG_B);
 KREG #(7) V27(clk_6M, RES_SYNC, COUNT_UNK, ~P135, KREG_C);
 KREG #(7) S2(clk_6M, RES_SYNC, COUNT_UNK, ~P137, KREG_D);
 
-
-// Unknown counters
 wire C94_XQ;
 assign C130 = ~&{HRST_delay[6], ~&{C130, HRST_delay[0]}};	// Combinational loop !
 assign E141 = ~&{C94_XQ, C130};
@@ -623,7 +654,6 @@ assign ATTR_A[2:0] = Z9_Q[2:0];
 assign OA_out = CPU_ACCESS ? AB[9:0] : ATTR_A;
 
 
-
 // MISC
 
 // Sprite raster match
@@ -633,10 +663,7 @@ T5A AP176(AH187, AH189, 1'b1, ~MUL_REG[6], ~SPR_HEIGHT0, ~SPR_H64P, AP176_OUT);
 assign AD134 = ~|{MUL_REG[8:7], AN195_Q[3], AP176_OUT};
 
 // Intra-tile vertical flip
-assign TILE_ROW[3] = SPR_VFLIP_DELAY ^ MUL_REG[3];
-assign TILE_ROW[2] = SPR_VFLIP_DELAY ^ MUL_REG[2];
-assign TILE_ROW[1] = SPR_VFLIP_DELAY ^ MUL_REG[1];
-assign TILE_ROW[0] = SPR_VFLIP_DELAY ^ MUL_REG[0];
+assign TILE_ROW = {4{SPR_VFLIP_DELAY}} ^ MUL_REG;
 
 // TODO: Document this
 wire M116, J148, B94_XQ, B115_XQ, B122_XQ;
@@ -686,7 +713,7 @@ always @(posedge clk_12M or negedge RES_SYNC) begin
 	if (!RES_SYNC) begin
 		SPR_ZX_ACC <= 7'h00;
 	end else begin
-		SPR_ZX_ACC <= M94_XQ ? ({1'b0, ~SPR_ATTR_ZX} + SPR_ZX_ACC) : {1'b0, SPR_ATTR_ZX};
+		SPR_ZX_ACC <= M94_XQ ? ({1'b0, SPR_ATTR_ZX} + SPR_ZX_ACC) : {1'b0, SPR_ATTR_ZX};
 	end
 end
 assign CARY = SPR_ZX_ACC[6];
@@ -715,34 +742,29 @@ always @(posedge clk_6M or negedge RES_SYNC) begin
 			SPR_ATTR_ZY_DELAY <= SPR_ATTR_ZY[7:2];
 			
 			AM195_Q <= {PARSE_DONE, VBLANK_SYNC, RAM_F_dout[6:5]};	// Part of sprite size attribute
-			AN195_Q <= {~&{SPR_Y8, AN195_Q[2]}, ~|{AM195_Q[3:2]}, AM195_Q[1:0]};
+			{AN195_Q, SPR_SIZE_DELAY[0], SPR_SIZE_DELAY[1]} <= {~&{SPR_Y8, AN195_Q[2]}, ~|{AM195_Q[3:2]}, AM195_Q[1:0]};
 		end
 	end
 end
-assign SPR_SIZE_DELAY[1:0] = {AN195_Q[0], AN195_Q[1]};
 
 // Sprite tile code
 wire [3:0] AX163_Q;
-wire [3:0] AV163_Q;
-// TODO: Are these clk_12M or clk_6M ?
-KREG AX163(clk_6M, RES_SYNC, {RAM_F_dout[7], RAM_E_dout[1], RAM_E_dout[3], RAM_E_dout[5]}, ~P1, AX163_Q);	// TODO: Check
-KREG AV163(clk_6M, RES_SYNC, AX163_Q, ~P1, AV163_Q);
-assign SPR_CODE[5] = AV163_Q[0];
-assign SPR_CODE[3] = AV163_Q[1];
-assign SPR_CODE[1] = AV163_Q[2];
-assign SPR_SIZE_DELAY[2] = AV163_Q[3];
-
-// Half KREGs - TODO: Are these clk_12M or clk_6M ?
-FDN AG228(clk_12M, ~LACH ? ~RAM_E_dout[0] : AG228_Q, RES_SYNC, AG228_Q, );
-assign SPR_CODE[0] = ~AG228_Q;
-FDN AG214(clk_12M, ~LACH ? ~RAM_E_dout[2] : AG214_Q, RES_SYNC, AG214_Q, );
-assign SPR_CODE[2] = ~AG214_Q;
-FDN AE234(clk_12M, ~LACH ? ~RAM_E_dout[4] : AE234_Q, RES_SYNC, AE234_Q, );
-assign SPR_CODE[4] = ~AE234_Q;
-FDN AF167(clk_12M, ~LACH ? ~RAM_E_dout[6] : AF167_Q, RES_SYNC, AF167_Q, );
-assign SPR_CODE[6] = ~AF167_Q;
-FDN AF174(clk_12M, ~LACH ? ~RAM_E_dout[7] : AF174_Q, RES_SYNC, AF174_Q, );
-assign SPR_CODE[7] = ~AF174_Q;
+KREG AX163(clk_6M, RES_SYNC, {RAM_F_dout[7], RAM_E_dout[1], RAM_E_dout[3], RAM_E_dout[5]}, ~P1, AX163_Q);
+always @(posedge clk_6M or negedge RES_SYNC) begin
+	if (!RES_SYNC) begin
+		SPR_CODE[5] <= 1'b0;
+		SPR_CODE[3] <= 1'b0;
+		SPR_CODE[1] <= 1'b0;
+		SPR_SIZE_DELAY[2] <= 1'b0;
+	end else begin
+		if (!P1) begin
+			SPR_CODE[5] <= AX163_Q[0];
+			SPR_CODE[3] <= AX163_Q[1];
+			SPR_CODE[1] <= AX163_Q[2];
+			SPR_SIZE_DELAY[2] <= AX163_Q[3];
+		end
+	end
+end
 
 
 // SEQUENCING
