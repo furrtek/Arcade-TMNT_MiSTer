@@ -1,52 +1,80 @@
-module TMNTColor
-(
-	input [8:0] CD,
+module TMNTColor(
+	input clk_sys,
+	input V6M,
+	input [12:1] AB,
+	input [9:0] CD,
 	input SHADOW,
 	input NCBLK,
 	input COLCS,
+	input NLWR,
+	input NREAD,
+	input [7:0] CPU_DIN,
+	output [7:0] CPU_DOUT,
 	output [5:0] RED_OUT,
 	output [5:0] GREEN_OUT,
 	output [5:0] BLUE_OUT
 );
 
+	// Color data CD[9:0], NCBLK and SHADOW latched by V6M
+	// Goes into mux for CPU palette RAM access, select by COLCS
+	// Output of mux used as address for 2* 2kB palette RAM
+	// Output of palette RAM also latched by V6M -> 5 bits + 1 common -> DACs
+	// Also goes into 245's for CPU access (lower byte only)
+
 	reg [12:0] C_REG;
-	reg [10:0] CR;
+	wire [10:0] CR;
 	wire [7:0] RAM_DOUT_LOW;
 	wire [7:0] RAM_DOUT_HIGH;
 	reg [15:0] COL;
 	wire [15:0] COL_OUT;
-	wire [5:0] RED;
-	wire [5:0] GREEN;
-	wire [5:0] BLUE;
+	wire [4:0] RED;
+	wire [4:0] GREEN;
+	wire [4:0] BLUE;
+	wire [15:0] I;
 	
 	always @(posedge V6M)
 		C_REG <= {C_REG[11], SHADOW, NCBLK, CD};
 	
-	assign {nCOE, CR} = COLCS ? {1'b0, 1'b0, C_REG[9:0]} : {NREAD, AB[12:2]};
+	assign {nCOE, CR} = COLCS ? {2'b00, C_REG[9:0]} : {NREAD, AB[12:2]};
+	// nCOE useless ?
 
-	RAM RAM_PAL_LOW(
-		.A(CR),
-		.DIN(D[7:0]),
-		.DOUT(RAM_DOUT_LOW),
-		.WR(~AB[1] & ~COLCS & ~NLWR)
+	/*assign I[7:0] = (~COLCS & AB[1] & NREAD) ? CPU_DIN : 8'bzzzzzzzz;
+	assign I[15:8] = (~COLCS & ~AB[1] & NREAD) ? CPU_DIN : 8'bzzzzzzzz;
+	
+	assign CPU_DOUT = (~COLCS & ~NREAD) ? AB[1] ? RAM_DOUT_LOW : RAM_DOUT_HIGH : 8'bzzzzzzzz;*/
+	assign I[7:0] = CPU_DIN;
+	assign I[15:8] = CPU_DIN;
+	
+	assign CPU_DOUT = AB[1] ? RAM_DOUT_LOW : RAM_DOUT_HIGH;
+	
+	// TMNT only uses half of palette RAM ?
+	//ram_sim #(8, 11, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/palettes_L.txt") RAM_PAL_HIGH(CR, AB[1] | COLCS | NLWR, 1'b0, I[15:8], RAM_DOUT_HIGH);
+	//ram_sim #(8, 11, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/palettes_U.txt") RAM_PAL_LOW(CR, ~AB[1] | COLCS | NLWR, 1'b0, I[7:0], RAM_DOUT_LOW);
+	ram_pal RAM_PAL_U(
+		.clock(~clk_sys),	// clk_main
+		.address(CR),
+		.q(RAM_DOUT_HIGH),
+		.wren(~(AB[1] | COLCS | NLWR)),
+		.data(I[15:8])
 	);
-	RAM RAM_PAL_HIGH(
-		.A(CR),
-		.DIN(D[7:0]),
-		.DOUT(RAM_DOUT_HIGH),
-		.WR(AB[1] & ~COLCS & ~NLWR)
+	ram_pal RAM_PAL_L(
+		.clock(~clk_sys),	// clk_main
+		.address(CR),
+		.q(RAM_DOUT_LOW),
+		.wren(~(~AB[1] | COLCS | NLWR)),
+		.data(I[7:0])
 	);
-	assign D[7:0] = ~NREAD ? (~NREAD & ~AB[0]) ? RAM_DOUT_LOW : RAM_DOUT_HIGH : 8'bzzzzzzzz;
 	
 	always @(posedge V6M)
-		COL <= RAM_DOUT;
+		COL <= {C_REG[10], RAM_DOUT_HIGH[6:0], RAM_DOUT_LOW};
 	
-	assign RED = {COL[12:8], COL[7]};
-	assign GREEN = {COL[1:0], COL[15:13], COL[7]};
-	assign BLUE = {COL[6:2], COL[7]};
+	// COL[15] = NCBLK delayed
+	assign RED = COL[15] ? COL[4:0] : 5'd0;
+	assign GREEN = COL[15] ? COL[9:5] : 5'd0;
+	assign BLUE = COL[15] ? COL[14:10] : 5'd0;
 	
-	assign RED_OUT = SHADOW ? RED : {1'b0, RED};
-	assign GREEN_OUT = SHADOW ? GREEN : {1'b0, GREEN};
-	assign BLUE_OUT = SHADOW ? BLUE : {1'b0, BLUE};
+	assign RED_OUT = C_REG[12] ? {RED, RED[0]} : {1'b0, RED};
+	assign GREEN_OUT = C_REG[12] ? {GREEN, GREEN[0]} : {1'b0, GREEN};
+	assign BLUE_OUT = C_REG[12] ? {BLUE, BLUE[0]} : {1'b0, BLUE};
 	
 endmodule
