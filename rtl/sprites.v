@@ -44,7 +44,7 @@ module sprites(
 	wire [7:0] OD_out;
 
 	reg [9:1] CA_DEC;
-	wire [7:0] PROM_dout;
+	wire [3:0] PROM_dout;
 	
 	// TODO: Really use ce_main properly
 	wire clk_main;
@@ -76,6 +76,8 @@ module sprites(
 	end
 	
 	k051960 k051960_1 (
+		.clk_96M(clk),
+	
 		.nRES(~reset),
 		.clk_24M(clk_main),
 		.clk_12M(clk_12M),
@@ -209,7 +211,7 @@ module sprites(
 	always @(*) begin
 		case(PROM_dout[2:0])
 			3'd0: CA_DEC <= {CA[9], CA[8], CA[7], CA[6], CA[5], CA[4], CA[2], CA[1], CA[0]};
-			3'd1: CA_DEC <= {CA[9], CA[8], CA[7], CA[5], CA[6], CA[4], CA[2], CA[1], CA[0]};
+			3'd1: CA_DEC <= {CA[9], CA[8], CA[7], CA[5], CA[6], CA[4], CA[2], CA[1], CA[0]};	// Checked ok
 			3'd2: CA_DEC <= {CA[9], CA[8], CA[7], CA[6], CA[4], CA[2], CA[1], CA[0], CA[5]};
 			3'd3: CA_DEC <= {CA[9], CA[8], CA[7], CA[6], CA[4], CA[2], CA[1], CA[0], CA[5]};
 			3'd4: CA_DEC <= {CA[9], CA[7], CA[8], CA[6], CA[4], CA[2], CA[1], CA[0], CA[5]};
@@ -220,6 +222,8 @@ module sprites(
 	end
 
 	k051937 k051937_1 (
+		.clk_96M(clk),
+		
 		.nRES(~reset),
 		.clk_24M(clk_main),
 		

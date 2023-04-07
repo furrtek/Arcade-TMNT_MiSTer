@@ -116,6 +116,61 @@
 
 // Fixed X scrolling offset. Schematic to verilog translation mistake, AA41 was clocked by AA22_nQ instead of ~AA22_nQ.
 
+// No sprites showing at all. NOBJ never asserted, and only spr_rom_addr[0] changes.
+// Sprite RAMs in k051960 were connected wrong. Fixed but no visible improvement.
+// Added a CPU stop toggle in the MiSTer menu to inspect the title screen.
+// VBLANK starts at line ROW = F0 ok, RAMB wren pulse every 8 attributes counted from 0 to 7F ok (clearing)
+// Then VRAM -> internal RAM copy starts. Sprites 0~12 are copied:
+// Sprites 0 to 6 in external RAM -> 79 (4F) to 73 in internal RAM: ok, data written in RAMB ok
+// Sprites 7 to 12 in external RAM -> 72 to 67 (43) in internal RAM: ok, data written in RAMB ok, ends during row F5
+// There are some non-zero values on spr_rom_addr, with non-zero spr_rom_data read back.
+// ROM address 0B288 read -> tile 594, corresponds to one of the "TURTLES" letters: ok.
+
+// Changing the signaltap observed signals causes the ROM address to stay at 0 -> Async timing problem.
+
+// Fixed range of T143, was 4 bits instead of 3.
+// Reset to 0111 1100 0 (F8)
+// VBLANK should rise at 1111 1000 0 (1F0) -> 248 lines ok
+// Reset to 0111 1100 0 (F8) after 1FF -> 16 lines
+// VBLANK should fall at 1000 1000 0 (110) -> 24 lines ok
+// Total Vblank time: 40 lines, total frame time: 224 lines
+// ROM address is now changing again but still no output from 051937.
+
+// 051937 SHIFTER1 DOUT changes values ok
+// RAMA gets written to with non-zero values, outputs ok
+// Changed RAM we polarity, some sprites now show up with apparently correct sizes but wrong tiles.
+// "S" of "TURTLES" seems to be tile 25A0+ instead of 5A0+, each tile is 16*16px*4bpp = 1024bits = 64 words
+// Offset of 080000 words
+// spr_rom_addr = 2D00, SDRAM address should be 2D00 * 2 = 5A00
+// Fixed SDRAM sprite ROM loading offset, sprites now have correct tiles but some missing parts and palette issues.
+
+// Using the intro sequence 4 characters screen to debug (4 big sprites).
+// Wrong palettes: LSB of palette number is flipped (19 becomes 18, 1B becomes 1A...)
+// In parsing order, sprite #78 (top right) comes first then #79 (top left): attributes 18 then 19 in 051960.
+// The OC bus is correctly set to 8 then 9, ok.
+// In rendering order, attribute 9 (top left) first then 8 (top right). Problem: it's the opposite, on row #2 the OB
+// bus is set to 08E (color E is character image border ok) then 09E. So the 051937 is mixing up OC values somewhere.
+// Found a mismatch with the schematic: moved assign to PAL_LATCH2 outside of if (!NEW_SPR) as it should be. This fixed
+// the wrong palettes. The size issue / missing tiles remains, probably something in 051960.
+
+// Still using the 4 characters screen to debug. All 4 sprites are 128x128 pixels and are completely opaque.
+// The lower half (64 px) of the sprites aren't shown.
+// The 64x64 and 64x32 pixel sprites of the titlescreen aren't affected.
+// Both sprites for the manhole cover in the intro sequence is affected (tile code 310, palette 7, size 32x32 pixels).
+// Some parts of the clouds in the intro sequence are affected. They're made of 16x16 and 32x32 sprites. The 16x16 are
+// displayed ok but the 32x32 are cut in half.
+// 128x128	111	affected (intro square character images)
+// 64x64		110	not affected (TURTLES letters and character description screens)
+// 32x64		101	?
+// 64x32		100	not affected (TMNT banner)
+// 32x32		011	affected (clouds)
+// 16x32		010	?
+// 32x16		001	not affected (pink light column coming out of manhole, maybe not affected because only 1 tile high ?)
+// 16x16		000	not affected (clouds)
+// Found a mismatch with the schematic: AM195_Q got RAM_F_dout bits 5 and 6 were swapped. Minor improvements ?
+// Found an error in the AT184/AT179/AT177 formula. Fixed all sprite size issues except for the 128x128 ones.
+// Register AF1 was being fed one bit too much (AH27_S[4:0], sum and carry, instead of just the sum AH27_S[3:0]).
+// This fixed the 128x128 sprites.
 
 // Clocks:
 // clk_sys	96MHz
@@ -321,12 +376,13 @@ assign VIDEO_ARY = 12'd3;
 // 0         1         2         3          4         5         6   
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// X
+// X        T
 
 localparam CONF_STR = {
 	"TMNT;;",
 	"-;",
 	"DIP;",
+	"O9,CPU,RUN,STOP;",
 	/*"O34,Noise,White,Red,Green,Blue;",
 	"-;",
 	"P1,Test Page 1;",
@@ -347,6 +403,8 @@ localparam CONF_STR = {
 	"DEFMRA,tmnt.mra;",
 	"V,v",`BUILD_DATE 
 };
+
+assign CPU_RUN = ~status[9];
 
 wire forced_scandoubler;
 wire [1:0] buttons;
@@ -542,8 +600,6 @@ sdram ram1(
 
 //////////////////////////////////////////////////////////////////
 
-wire [1:0] col = status[4:3];
-
 wire HBlank;
 wire HSync;
 wire VSync;
@@ -556,6 +612,8 @@ tmnt mycore
 (
 	.reset(reset),
 	.clk_sys(clk_sys),	// 96MHz
+	
+	.CPU_RUN(CPU_RUN),
 	
 	//.scandouble(forced_scandoubler),
 	.ioctl_download,

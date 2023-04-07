@@ -7,6 +7,8 @@ module tmnt
 	input reset,
 	input clk_sys,				// 96MHz
 	
+	input CPU_RUN,
+	
 	input ioctl_download,
 	
 	input rom_68k_we,
@@ -113,7 +115,7 @@ assign ce_pix2 = ce_pix_sr[8];	// 96/16 = 6 MHz, phase shifted
 // Tiles		?
 // Sprites	?
 
-parameter CPU_RUN = 1'b1;		// DEBUG
+//parameter CPU_RUN = 1'b1;		// DEBUG
 
 wire [23:1] m68k_addr;
 reg [15:0] m68k_din;
@@ -227,7 +229,6 @@ end
 wire [23:1] m68k_addr_pre;
 wire nAS_pre;
 cpu_68k CPU68K(
-	//.clk(CPU_RUN ? clk_main : 1'b0),
 	.clk(CPU_RUN ? clk_sys : 1'b0),
 	.clken(ce_main),
 	.nRESET(~reset & CPU_RUN),
@@ -462,7 +463,7 @@ planes PLANES(
 
 sprites SPRITES(
 	.reset(reset),
-	.clk(CPU_RUN ? clk_sys : 1'b0),
+	.clk(clk_sys),
 	.clken(ce_main),
 	
 	.rom_prom1_we(rom_prom1_we),

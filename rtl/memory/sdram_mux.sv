@@ -26,11 +26,11 @@ module sdram_mux(
 	input             reset,
 
 	input             tiles_rom_req,
-	input      [17:0] tiles_rom_addr,
+	input      [17:0] tiles_rom_addr,	// Dword address
 	output reg [31:0] tiles_rom_data,	// 8 pixels
 	
 	input             spr_rom_req,
-	input      [18:0] spr_rom_addr,
+	input      [18:0] spr_rom_addr,		// Dword address
 	output reg [31:0] spr_rom_data,		// 8 pixels
 
 	/*input					theme_rom_req,
@@ -66,13 +66,20 @@ module sdram_mux(
 	always_comb begin 
 		casez ({DL_EN, CROM_RD_RUN, SROM_RD_RUN})
 			// HPS loading pass-through
-			3'b1zz: SDRAM_ADDR = dl_addr;
+			3'b1zz: SDRAM_ADDR = dl_addr;	// Word address
 			
-			// Tiles		$0000000~$003FFFF
-			3'b001: SDRAM_ADDR = {7'b00_0000_0, tiles_rom_addr, 1'b0};
+			// Byte $000000-$0FFFFF (1MB)
+			// Word $000000-$07FFFF
+			// Tiles		$0000000~$003FFFF 32-bit ($0000000~$007FFFF word)
+			3'b001: SDRAM_ADDR = {7'b00_0000_0, tiles_rom_addr, 1'b0};	// Word address
 
-			// Sprites	$0100000~$03FFFFF
-			3'b010: SDRAM_ADDR = {6'b00_0001, spr_rom_addr, 1'b0};
+			// Byte $000000-$1FFFFF (2MB)
+			// Word $000000-$0FFFFF
+			// With offset:
+			// Byte $200000-$3FFFFF (2MB)
+			// Word $100000-$1FFFFF
+			// Sprites	$0000000~$007FFFF 32-bit ($0000000~$00FFFFF word) + $0100000
+			3'b010: SDRAM_ADDR = {6'b00_0001, spr_rom_addr, 1'b0};		// Word address
 			
 			default: SDRAM_ADDR = 26'd0;
 		endcase
@@ -91,7 +98,7 @@ module sdram_mux(
 		reg old_ready;
 
 		if (DL_WR & DL_EN) begin
-			dl_addr <= DL_ADDR[26:1];
+			dl_addr <= DL_ADDR[26:1];	// DL_ADDR is byte-based, dl_addr is word-based
 			dl_data <= DL_DATA;
 			SDRAM_WR <= 1;
 		end

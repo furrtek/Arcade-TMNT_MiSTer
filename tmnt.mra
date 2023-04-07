@@ -1,0 +1,73 @@
+<misterromdescription>
+  <name>Teenage Mutant Ninja Turtles (World 4 Players, version X)</name>
+  <mratimestamp>202209100000</mratimestamp>
+  <mameversion>0216</mameversion>	<!-- TODO -->
+  <setname>tmnt</setname>
+  <year>1989</year>
+  <manufacturer>Konami</manufacturer>
+  <category>Beat 'em up</category>
+  <rbf>TMNT</rbf>
+  <switches default="FF,FF,FF">	<!-- TODO: There are more coinage options -->
+    <dip bits="0,1,2,3" name="Coinage" ids="1c/1cr,1c/2cr,1c/3cr" values="15,14,13"/>
+    <dip bits="8,9" 	name="Lives" ids="1,2,3,5" values="3,2,1,0"/>
+    <dip bits="13,14"	name="Difficulty" ids="Easy,Normal,Difficult,Very difficult" values="3,2,1,0"/>
+    <dip bits="15" 		name="Demo sound" ids="On,Off" values="0,1"/>
+    <dip bits="16" 		name="Flip screen" ids="On,Off" values="0,1"/>
+    <dip bits="17" 		name="Test mode" ids="On,Off" values="0,1"/>
+  </switches>
+  <buttons names="A,B,C,Start 1P,Start 2P,Coin" default="A,B,X,Start,Select,R"/>	<!-- TODO -->
+<!-- rom index 1 or any other index can pass additional information the core. -->
+	<rom index="1">
+	    <part>01</part>
+	</rom>
+  <romstruct>	<!-- TODO -->
+ROM structure
+00000 - 0BFFF  48k CPU1
+0C000 - 0FFFF  16k CPU2
+10000 - 13FFF  16k GFX1
+14000 - 1BFFF  32k GFX2
+  </romstruct>
+
+<!-- the nvram node is used to download and upload the nvram memory. When the user hits "Save Settings" in the OSD it triggers ioctl_upload. This isn't available in Donkey Kong because it didn't originally have NVRAM -->
+<!-- <nvram index="4" size="1024"/> -->
+
+<!-- rom index 0 is the standard rom. The zip will be added to the name inside the part, unless the
+part has it's own zip. The md5 will be checked at the end. A file not found error is reported before an md5
+error. -->
+  <rom index="0" zip="tmnt.zip" md5="none">
+	<!-- 68k -->
+    <interleave output="16">
+	    <part crc="a9549004" name="963-x23.j17"  map="01"/>
+	    <part crc="e5cc9067" name="963-x24.k17"  map="10"/>
+    </interleave>
+    <interleave output="16">
+	    <part crc="5789cf92" name="963-x21.j15"  map="01"/>
+	    <part crc="0a74e277" name="963-x22.k15"  map="10"/>
+    </interleave>
+	<!-- Z80 -->
+    <part crc="1692a6d6" name="963e20.g13"/>
+	<!-- Tiles -->
+    <interleave output="32">
+	    <part crc="db4769a8" name="963a28.h27"  map="0011"/>
+	    <part crc="8069cd2e" name="963a29.k27"  map="1100"/>
+    </interleave>
+	<!-- Sprites -->
+    <interleave output="32">
+	    <part crc="b5239a44" name="963a17.h4"  map="0011"/>
+	    <part crc="1f324eed" name="963a15.k4"  map="1100"/>
+    </interleave>
+    <interleave output="32">
+	    <part crc="dd51adef" name="963a18.h6"  map="0011"/>
+	    <part crc="d4bd9984" name="963a16.k6"  map="1100"/>
+    </interleave>
+	<!-- k007232 -->
+    <part crc="e2ac3063" name="963a26.c13"/>
+	<!-- upd -->
+    <part crc="2dfd674b" name="963a27.d18"/>
+	<!-- Title -->
+    <part crc="fca078c7" name="963a25.d5"/>
+	<!-- PROMs -->
+    <part crc="abd82680" name="963a30.g7"/>
+    <part crc="f8004a1c" name="963a31.g19"/>
+  </rom>
+</misterromdescription>

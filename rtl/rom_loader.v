@@ -14,7 +14,7 @@ module rom_loader(
 	output reg rom_prom1_we,
 	output reg rom_prom2_we,
 	
-	output reg [25:0] rom_addr,
+	output reg [25:0] rom_addr,	// Word-based
 	output reg [15:0] rom_data
 );
 
@@ -22,13 +22,13 @@ module rom_loader(
 // 68k		384kB 16bit		BRAM
 // Z80		32kB 8bit		BRAM
 // Tiles		1MB 32bit		SDRAM at 0x000000
-// Sprites	2MB 32bit		SDRAM at 0x100000
+// Sprites	2MB 32bit		SDRAM at 0x200000
 // k007232	128kB 8bit		?
 // uPD7759	128kB 8bit		?
 // Theme		512kB	8bit		SDRAM at 0x400000
 // PROMs		256b *2			BRAM
 
-// Lengths
+// Byte-based lengths
 localparam ROM_68K_L = 25'h060000;
 localparam ROM_Z80_L = 25'h008000;
 localparam ROM_TILES_L = 25'h100000;
@@ -61,9 +61,10 @@ wire is_theme = 	ioctl_addr >= ROM_THEME_B && ioctl_addr < ROM_PROM1_B;
 wire is_prom1 = 	ioctl_addr >= ROM_PROM1_B && ioctl_addr < ROM_PROM2_B;
 wire is_prom2 = 	ioctl_addr >= ROM_PROM2_B && ioctl_addr < ROM_END;
 
-localparam offs_tiles = 25'h000000;
-localparam offs_sprites = 25'h100000;
-localparam offs_theme = 25'h400000;
+// Byte-based offsets
+localparam offs_tiles = 26'h0000000;
+localparam offs_sprites = 26'h0200000;
+localparam offs_theme = 26'h0400000;
 
 wire [25:0] addr_68k = 		ioctl_addr - ROM_68K_B;
 wire [25:0] addr_z80 = 		ioctl_addr - ROM_Z80_B;

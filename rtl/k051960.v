@@ -17,6 +17,8 @@
 // RAM_G: ATTR7	X position LSBs
 
 module k051960 (
+	input clk_96M,	// DEBUG for delays
+
 	input nRES,
 	output RST,
 	input clk_24M,
@@ -166,7 +168,7 @@ end
 
 // V counter
 // 9-bit counter, resets to 9'h0F8 after 9'h1FF, effectively counting 264 raster lines
-wire [8:0] ROW_RAW;
+wire [8:0] ROW_RAW /* synthesis keep */;
 FDO T247(clk_6M, ~|{DELAY_HVIN[7], ^{LINE_END, ~ROW_RAW[0]}}, RES_SYNC, ROW_RAW[0]);
 
 // DEBUG START - FOR SIMULATION ONLY
@@ -194,13 +196,16 @@ wire FLIP_SCREEN;
 assign ROW = {ROW_RAW[7:0]} ^ {8{FLIP_SCREEN}};
 
 // Start vblank at line 9h'1F0 included, stop at 9'h110 excluded
-FDO T192(ROW_RAW[4], &{ROW_RAW[7:4]}, RES_SYNC, VBLANK);
+reg T143;
+always @(negedge clk_96M)
+	T143 <= &{ROW_RAW[7:5]};	// Was ROW_RAW[7:4]
+FDO T192(ROW_RAW[4], T143, RES_SYNC, VBLANK);
 
 
 // INTERNAL RAM
 
 // Internal RAM WEs
-wire Z95, VBLANK_SYNC;
+wire Z95, VBLANK_SYNC /* synthesis keep */;
 assign RAM_F_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b001};	// ATTR1
 assign RAM_E_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b010};	// ATTR2
 assign RAM_C_WE = &{AB98, VBLANK_SYNC, Z95, ATTR_A[2:0] == 3'b011};	// ATTR3
@@ -235,13 +240,13 @@ always @(posedge clk_3M)
 
 assign RAM_din = RAM_DATA_WR ? RAM_din_latch : 8'h00;
 
-ram_k051960 RAMA(RAM_addr, clk_24M, RAM_A_WE & AB19, RAM_din, RAM_A_dout);
-ram_k051960 RAMB(RAM_addr, clk_24M, RAM_B_WE & AB19, RAM_din, RAM_B_dout);
-ram_k051960 RAMC(RAM_addr, clk_24M, RAM_C_WE & AB19, RAM_din, RAM_C_dout);
-ram_k051960 RAMD(RAM_addr, clk_24M, RAM_D_WE & AB19, RAM_din, RAM_D_dout);
-ram_k051960 RAME(RAM_addr, clk_24M, RAM_E_WE & AB19, RAM_din, RAM_E_dout);
-ram_k051960 RAMF(RAM_addr, clk_24M, RAM_F_WE & AB19, RAM_din, RAM_F_dout);
-ram_k051960 RAMG(RAM_addr, clk_24M, RAM_G_WE & AB19, RAM_din, RAM_G_dout);
+ram_k051960 RAMA(RAM_addr, clk_24M, RAM_din, RAM_A_WE & AB19, RAM_A_dout);
+ram_k051960 RAMB(RAM_addr, clk_24M, RAM_din, RAM_B_WE & AB19, RAM_B_dout);
+ram_k051960 RAMC(RAM_addr, clk_24M, RAM_din, RAM_C_WE & AB19, RAM_C_dout);
+ram_k051960 RAMD(RAM_addr, clk_24M, RAM_din, RAM_D_WE & AB19, RAM_D_dout);
+ram_k051960 RAME(RAM_addr, clk_24M, RAM_din, RAM_E_WE & AB19, RAM_E_dout);
+ram_k051960 RAMF(RAM_addr, clk_24M, RAM_din, RAM_F_WE & AB19, RAM_F_dout);
+ram_k051960 RAMG(RAM_addr, clk_24M, RAM_din, RAM_G_WE & AB19, RAM_G_dout);
 
 // Sprite RAM CPU read
 wire [7:0] EXRAM_D_LATCH;
@@ -298,7 +303,7 @@ A2N AH81({SPR_YDIFF[7], SPR_YDIFF[7] & SPR_ATTR_ZY_DELAY[5]}, AJ101_S[2:1], AH27
 assign AJ141 = (SPR_YDIFF[7] & SPR_ATTR_ZY_DELAY[0]) ^ AK101_S[0];
 
 wire [8:0] MUL_REG;
-KREG #(8) AF1(clk_6M, RES_SYNC, {AH81_S, AH27_S, AJ141}, ~P1, MUL_REG[8:1]);
+KREG #(8) AF1(clk_6M, RES_SYNC, {AH81_S, AH27_S[3:0], AJ141}, ~P1, MUL_REG[8:1]);
 
 
 // DELAYS / LATCHES
@@ -322,6 +327,7 @@ KREG #(8) AN221(
 // Get sprite priority and active flag from sprite RAM ATTR0
 assign Y133 = ~|{ATTR_A[2:0]};
 // Y2 Y28
+wire SPR_ACTIVE /* synthesis keep */;
 KREG #(8) Y2(clk_3M, RES_SYNC, OD_in, Y133, {SPR_ACTIVE, SPR_PRIO});
 
 wire [3:0] K94_Q;
@@ -418,10 +424,14 @@ assign HP[7:0] = SPR_ATTR_X;
 
 assign OC = ROM_READ ? {REG4, REG3[7:2]} : SPR_COL_DELAY;
 
-assign SPR_H64P = &{|{SPR_SIZE_DELAY2[1:0]}, SPR_SIZE_DELAY2[2]};
-assign SPR_W64P = &{|{SPR_SIZE[1], ~SPR_SIZE[0]}, SPR_SIZE[2]};
+assign SPR_H64P = &{|{SPR_SIZE_DELAY2[1:0]}, SPR_SIZE_DELAY2[2]};	// Sprite taller than or equal to 64px
+assign SPR_W64P = &{|{SPR_SIZE[1], ~SPR_SIZE[0]}, SPR_SIZE[2]};	// Sprite wider than or equal to 64px
 // Triggers on some values of SPR_SIZE_DELAY2
-assign SPR_HEIGHT0 = ~(^{SPR_SIZE_DELAY2[1:0]} | ~SPR_SIZE_DELAY2[2]) & (~&{~SPR_SIZE_DELAY2[2], SPR_SIZE_DELAY2[1]});
+//assign SPR_HEIGHT0 = ~(^{SPR_SIZE_DELAY2[1:0]} | ~SPR_SIZE_DELAY2[2]) & (~&{~SPR_SIZE_DELAY2[2], SPR_SIZE_DELAY2[1]});
+// TESTING
+assign AT177 = ^{SPR_SIZE_DELAY2[1:0]} | ~SPR_SIZE_DELAY2[2];
+assign AT179 = ~&{~SPR_SIZE_DELAY2[2], SPR_SIZE_DELAY2[1]};
+assign SPR_HEIGHT0 = ~&{AT177, AT179};
 
 // Sprite Y position check
 wire [7:0] SPR_ATTR_Y;
@@ -611,7 +621,12 @@ FDO B101(B108_Q, 1'b1, D94_Q[3], , NMI);
 T5A AC232(SUBTILE_H[0], &{SUBTILE_H[1:0]}, &{SUBTILE_H[3:0]}, &{SUBTILE_H[2:0]}, ~SPR_SIZE[0], ~SPR_W64P, AC232_X);
 assign HEND = ~AC232_X;
 assign X192 = ~|{~PXH[0], HEND};
-assign #1 test2 = clk_6M;
+
+//TESTING
+//assign #1 test2 = clk_6M;
+reg test2;
+always @(negedge clk_96M)
+	test2 <= clk_6M;
 C43 AB233(clk_12M, 4'b0000, AB122, ~test2, X192, RES_SYNC, SUBTILE_H);		// clk_6M must be delayed !
 
 
@@ -660,7 +675,7 @@ assign OA_out = CPU_ACCESS ? AB[9:0] : ATTR_A;
 assign AH189 = ~|{MUL_REG[6:5]};
 assign AH187 = ~|{MUL_REG[6:4]};
 T5A AP176(AH187, AH189, 1'b1, ~MUL_REG[6], ~SPR_HEIGHT0, ~SPR_H64P, AP176_OUT);
-assign AD134 = ~|{MUL_REG[8:7], AN195_Q[3], AP176_OUT};
+assign AD134 = ~|{|{MUL_REG[8:7], AN195_Q[3]}, AP176_OUT};
 
 // Intra-tile vertical flip
 assign TILE_ROW = {4{SPR_VFLIP_DELAY}} ^ MUL_REG[3:0];
@@ -741,7 +756,7 @@ always @(posedge clk_6M or negedge RES_SYNC) begin
 			SPR_VFLIP <= SPR_ATTR_ZY[1];
 			SPR_ATTR_ZY_DELAY <= SPR_ATTR_ZY[7:2];
 			
-			AM195_Q <= {PARSE_DONE, VBLANK_SYNC, RAM_F_dout[6:5]};	// Part of sprite size attribute
+			AM195_Q <= {PARSE_DONE, VBLANK_SYNC, RAM_F_dout[5], RAM_F_dout[6]};	// Part of sprite size attribute
 			{AN195_Q, SPR_SIZE_DELAY[0], SPR_SIZE_DELAY[1]} <= {~&{SPR_Y8, AN195_Q[2]}, ~|{AM195_Q[3:2]}, AM195_Q[1:0]};
 		end
 	end
@@ -769,7 +784,11 @@ end
 
 // SEQUENCING
 
-assign #1 test = clk_6M;
+//TESTING
+//assign #1 test = clk_6M;
+reg test;
+always @(negedge clk_96M)
+	test <= clk_6M;
 assign L141 = test & J121;	// clk_6M must be delayed !
 // This is a 3-stage delay
 FDO M108(clk_12M, L141, RES_SYNC, M108_Q, LACH);
@@ -783,5 +802,15 @@ assign Y141 = ~&{~VBLANK_SYNC, ~&{~VBLANK_SYNC, ~clk_3M, L101_Q}};
 assign X148 = ~Y141;
 assign Y81 = ~&{~&{RAM_DATA_WR, VBLANK_SYNC}, ~&{~VBLANK_SYNC, clk_3M}, ~&{~VBLANK_SYNC, ~clk_3M, L126_Q}};
 assign Y73 = ~Y81;
+
+
+// DEBUG
+
+reg [10:0] debug_copy_counter /* synthesis keep */;
+reg [6:0] debug_parse_counter /* synthesis keep */;
+always @(*) begin
+	debug_copy_counter <= {W101_QD, ATTR_A};
+	debug_parse_counter <= PARSE_A;
+end
 
 endmodule

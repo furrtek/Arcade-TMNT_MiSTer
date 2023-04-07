@@ -4,6 +4,8 @@
 `timescale 1ns/1ns
 
 module k051937 (
+	input clk_96M,	// DEBUG for delays
+	
 	input nRES,
 	input clk_24M,
 
@@ -73,15 +75,17 @@ reg [11:0] RAM_B_DIN;
 reg [11:0] RAM_E_DIN;
 reg [11:0] RAM_F_DIN;
 
-ram_k051937_color RAMA(RAM_ABCD_A, RAM_ABCD_CK, RAM_A_DIN, ~RAM_A_WE, RAM_A_DOUT);
-ram_k051937_color RAMB(RAM_ABCD_A, RAM_ABCD_CK, RAM_B_DIN, ~RAM_B_WE, RAM_B_DOUT);
-ram_k051937_shadow RAMC(RAM_ABCD_A, RAM_ABCD_CK, RAM_C_DIN, ~RAM_C_WE, RAM_C_DOUT);
-ram_k051937_shadow RAMD(RAM_ABCD_A, RAM_ABCD_CK, RAM_D_DIN, ~RAM_C_WE, RAM_D_DOUT);
+// Dual odd-even line buffers
 
-ram_k051937_color RAME(RAM_EFGH_A, RAM_EFGH_CK, RAM_E_DIN, ~RAM_E_WE, RAM_E_DOUT);
-ram_k051937_color RAMF(RAM_EFGH_A, RAM_EFGH_CK, RAM_F_DIN, ~RAM_F_WE, RAM_F_DOUT);
-ram_k051937_shadow RAMG(RAM_EFGH_A, RAM_EFGH_CK, RAM_G_DIN, ~RAM_G_WE, RAM_G_DOUT);
-ram_k051937_shadow RAMH(RAM_EFGH_A, RAM_EFGH_CK, RAM_H_DIN, ~RAM_H_WE, RAM_H_DOUT);
+ram_k051937_color RAMA(RAM_ABCD_A, RAM_ABCD_CK, RAM_A_DIN, RAM_A_WE, RAM_A_DOUT);
+ram_k051937_color RAMB(RAM_ABCD_A, RAM_ABCD_CK, RAM_B_DIN, RAM_B_WE, RAM_B_DOUT);
+ram_k051937_shadow RAMC(RAM_ABCD_A, RAM_ABCD_CK, RAM_C_DIN, RAM_C_WE, RAM_C_DOUT);
+ram_k051937_shadow RAMD(RAM_ABCD_A, RAM_ABCD_CK, RAM_D_DIN, RAM_C_WE, RAM_D_DOUT);
+
+ram_k051937_color RAME(RAM_EFGH_A, RAM_EFGH_CK, RAM_E_DIN, RAM_E_WE, RAM_E_DOUT);
+ram_k051937_color RAMF(RAM_EFGH_A, RAM_EFGH_CK, RAM_F_DIN, RAM_F_WE, RAM_F_DOUT);
+ram_k051937_shadow RAMG(RAM_EFGH_A, RAM_EFGH_CK, RAM_G_DIN, RAM_G_WE, RAM_G_DOUT);
+ram_k051937_shadow RAMH(RAM_EFGH_A, RAM_EFGH_CK, RAM_H_DIN, RAM_H_WE, RAM_H_DOUT);
 
 // CLOCK & VIDEO SYNC
 
@@ -110,7 +114,7 @@ FDE AS65(clk_24M, clk_3M, RES_SYNC, AS65_Q);	// = PE
 // 9-bit counter, resets to 9'h020 after 9'h19F, effectively counting 384 pixels
 FDO K89(clk_6M, AS65_Q, RES_SYNC, PXH[0]);
 C43 C89(clk_6M, 4'b0000, nNEW_LINE, PXH[0], PXH[0], RES_SYNC, PXH[4:1], C89_COUT);
-C43 E93(clk_6M, 4'b0001, nNEW_LINE, C89_COUT, C89_COUT, RES_SYNC, PXH[8:5], );
+C43 E93(clk_6M, 4'b0001, nNEW_LINE, C89_COUT, C89_COUT, RES_SYNC, PXH[8:5]);
 assign P1H = PXH[0];
 assign P2H = PXH[1];
 
@@ -152,12 +156,24 @@ assign AV139 = ~&{AT137, AV96_Q};
 
 wire AN106_XQ;
 assign AM1 = ~|{AV139, (AN106_Q & ~clk_6M)};
-assign AK13 = AM1;	// Must be delayed !
-assign #1 RAM_EFGH_CK = ~AM1;		// Test mode ignored
+//TESTING
+//assign AK13 = AM1;	// Must be delayed !
+reg AK13, RAM_EFGH_CK;
+always @(negedge clk_96M) begin
+	AK13 <= AM1;
+	RAM_EFGH_CK <= ~AM1;
+end
+//assign #1 RAM_EFGH_CK = ~AM1;		// Test mode ignored
 
 assign AM12 = ~|{AV139, (AN106_XQ & ~clk_6M)};
-assign AJ1 = AM12;	// Must be delayed !
-assign #1 RAM_ABCD_CK = ~AM12;	// Test mode ignored
+//TESTING
+//assign AJ1 = AM12;	// Must be delayed !
+reg AJ1, RAM_ABCD_CK;
+always @(negedge clk_96M) begin
+	AJ1 <= AM12;
+	RAM_ABCD_CK <= ~AM12;
+end
+//assign #1 RAM_ABCD_CK = ~AM12;		// Test mode ignored
 
 // Simplification of ROM CPU readback mux - TO TEST
 always @(*) begin
@@ -254,10 +270,9 @@ assign CD3_OUT = nROMRD[3] ? 8'h00 : DB_IN;*/
 reg [7:0] PAL_LATCH1;
 reg [7:0] PAL_LATCH2;
 always @(posedge clk_12M) begin
-	if (!NEW_SPR) begin
+	if (!NEW_SPR)
 		PAL_LATCH1 <= OC;	// AG64_Q AG4_Q
-		PAL_LATCH2 <= PAL_LATCH1;
-	end
+	PAL_LATCH2 <= PAL_LATCH1;
 end
 
 always @(posedge AK13) begin
@@ -271,7 +286,7 @@ end
 
 // LB ADDRESS
 
-FDO AB95(AAC98, DB_IN[3], RES_SYNC, AB95_Q, );
+FDO AB95(AAC98, DB_IN[3], RES_SYNC, AB95_Q);
 assign K108 = PXH[0] ^ AB95_Q;
 assign AK183 = ~K108;
 
@@ -285,7 +300,7 @@ always @(posedge PXH[0]) begin
 	AK196_Q <= PAIR ? RAM_G_DOUT : RAM_C_DOUT;
 	AK154_Q <= PAIR ? RAM_H_DOUT : RAM_D_DOUT;
 end
-FDM AL196(clk_6M, K108 ? AK154_Q : AK196_Q, AL196_Q, );
+FDM AL196(clk_6M, K108 ? AK154_Q : AK196_Q, AL196_Q);
 
 wire [2:0] REG1;
 
