@@ -6,42 +6,33 @@ module tmnt
 (
 	input reset,
 	input clk_sys,				// 96MHz
+	input [3:0] tno,
 	
-	input CPU_RUN,
+	input CPU_RUN,				// DEBUG
 	
-	input ioctl_download,
-	
-	input rom_68k_we,
+	input ioctl_download,	// ROM loading from HPS
 	input rom_z80_we,
-	input rom_theme_we,
 	input rom_prom1_we,
 	input rom_prom2_we,
-	
-	//input [1:0] rom_byteena,
+	input rom_007232_we,
+	input rom_uPD7759C_we,
 	input [15:0] rom_data,
 	input [25:0] rom_addr,
 	
-	output ce_pix, ce_pix2,
+	output ce_pix,				// Pixel clock enable
 	
-	input [3:0] P_up,
-	input [3:0] P_down,
-	input [3:0] P_left,
-	input [3:0] P_right,
-	input [3:0] P_jump,
-	input [3:0] P_attack1,
-	input [3:0] P_attack2,
-	input [3:0] P_attack3,
-	input [3:0] P_start,
-	input [3:0] P_coin,
-	
-	input [3:0] service,
+	input [7:0] inputs_P1,
+	input [7:0] inputs_P2,
+	input [7:0] inputs_P3,
+	input [7:0] inputs_P4,
+	input [3:0] inputs_coin,
+	input [3:0] inputs_service,
 	
 	output reg [1:0] coin_counter,
 
 	output [5:0] video_r,
 	output [5:0] video_g,
 	output [5:0] video_b,
-// output video_sync,
 
 	input [7:0] dipswitch1,
 	input [7:0] dipswitch2,
@@ -52,84 +43,106 @@ module tmnt
 	output NHSY,
 	output NVSY,
 	
+	output tiles_rom_req,
 	output [17:0] tiles_rom_addr,
 	input [31:0] tiles_rom_dout,
 	
+	output spr_rom_req,
 	output [18:0] spr_rom_addr,
 	input [31:0] spr_rom_dout,
 
+	output theme_rom_req,
 	output [17:0] theme_rom_addr,
-	input [15:0] theme_rom_dout
+	input [31:0] theme_rom_dout,
+	
+	output reg m68k_rom_req,
+	output [17:0] m68k_rom_addr,
+	input [15:0] m68k_rom_dout,
+	
+	output signed [15:0] audio_mono,
+	
+	input sdram_dtack
 );
 
 reg [3:0] ce_main_sr;
 reg [15:0] ce_pix_sr;
+reg [1:0] ce_snd_div;
+reg [11:0] ce_snd_cnt;
+reg ce_snd_p, ce_snd_n;		// Fractional
+reg ce_snd_half;
+reg [31:0] rom_req_sr;
+
+// ce_snd_n		_'___'___'___'___'___'___'___' at 3.58M
+// ce_snd_p		___'___'___'___'___'___'___'__ at 3.58M
+//	ce_snd_div  011223300112233001122330011223
+// ce_snd_half _______'_______'_______'______ at 3.58M/2
 
 always @(posedge clk_sys or posedge reset) begin
 	if (reset) begin
-		ce_main_sr <= 4'h1;
-		ce_pix_sr <= 16'h0001;
+		ce_main_sr <= 4'd1;
+		ce_pix_sr <= 16'd1;
+		rom_req_sr <= 32'd1;
+		
+		ce_snd_cnt <= 12'd0;
+		ce_snd_p <= 1'b0;
+		ce_snd_n <= 1'b0;
+		ce_snd_div <= 2'd0;
+		ce_snd_half <= 1'b0;
 	end else begin
-		ce_main_sr <= {ce_main_sr[2:0], ce_main_sr[3]};	// ROL
-		ce_pix_sr <= {ce_pix_sr[14:0], ce_pix_sr[15]};	// ROL
+		ce_main_sr <= {ce_main_sr[2:0], ce_main_sr[3]};		// ROL
+		ce_pix_sr <= {ce_pix_sr[14:0], ce_pix_sr[15]};		// ROL
+		rom_req_sr <= {rom_req_sr[30:0], rom_req_sr[31]};	// ROL
+		// 96M/(3.58M*2) = 13.408
+		// 13408/1000 = 1676/125
+		if (ce_snd_cnt >= 12'd1676) begin
+			ce_snd_div <= ce_snd_div + 1'b1;
+			ce_snd_cnt <= ce_snd_cnt - 12'd1676 + 12'd125;
+			
+			ce_snd_p <= ce_snd_div[0];
+			ce_snd_n <= ~ce_snd_div[0];
+			ce_snd_half <= &{ce_snd_div};
+		end else begin
+			ce_snd_p <= 1'b0;
+			ce_snd_n <= 1'b0;
+			ce_snd_half <= 1'b0;
+			ce_snd_cnt <= ce_snd_cnt + 12'd125;
+		end
 	end
 end
 
 assign ce_main = ce_main_sr[3];	// 96/4 = 24 MHz
 assign ce_pix = ce_pix_sr[0];		// 96/16 = 6 MHz
-assign ce_pix2 = ce_pix_sr[8];	// 96/16 = 6 MHz, phase shifted
 
-// k052109 DB_DIR wrong: drops during reads AND writes
+assign tiles_rom_req = rom_req_sr[2];	// 1 too early, 96/32 = 3 MHz
+assign spr_rom_req = rom_req_sr[16];	// 12 OK, 16 OK 96/32 = 3 MHz, phase shifted
 
-// Current state: FIX layer output works ok, sprites mostly OK some palettes wrong
-// Almost everything written except Z80 subsystem
-// Shortened checksum test in fast ROM, locks up with fixmap set to check screen with ROMs marked "BAD" as expected :)
-// Need to fix cell connections in k051960 (see modelsim output) to get rid of warnings
-// Passes palette RAM test (check d7, selftest results are stored as a bitmap)
-// Passes VRAM, WRAM and SPR RAM tests
-
-// HVOT from k052109 -> HVIN of sprite chips for frame sync.
-// k052109 H/V counters ok, checked HVOT output against real chip.
-// k051962 H/V counters ok, checked NCSY, NHBK, NVBK, NVSY, OHBK and k052109 HVOT outputs against real chip.
-// Very first frame after reset must be ignored, logic not fully init (checked against real chips).
-
-// Clocks:
-// 640kHz for the TMNT theme playback
-// 640kHz for the NEC voice chip
-// 3.58MHz for the Z80 and sound
-// 24MHz for the 68000 and video
-
-// ROMs:
-// 68k		384kB 16bit
-// Z80		32kB 8bit
-// Tiles		1MB 32bit
-// Sprites	2MB 32bit
-// k007232	128kB 8bit
-// uPD7759	128kB 8bit
-// Music		512kB	8bit
-
-// RAMs:
-// 68k		16kB 16bit
-// Z80		2kB 8bit
-// Palette	4kB 16bit
-// Tiles		?
-// Sprites	?
-
-//parameter CPU_RUN = 1'b1;		// DEBUG
+// tiles_rom_req based on tiles_rom_addr change, doesn't do any good
+/*reg [17:0] tiles_rom_addr_prev;
+always @(posedge clk_sys) begin
+	if ((tiles_rom_addr != tiles_rom_addr_prev) & ~tiles_rom_req)
+		tiles_rom_req <= 1'b1;
+	else
+		tiles_rom_req <= 1'b0;
+	tiles_rom_addr_prev <= tiles_rom_addr;
+end*/
 
 wire [23:1] m68k_addr;
 reg [15:0] m68k_din;
 wire [15:0] m68k_dout;
-wire [15:0] m68k_rom_dout;
-wire [15:0] m68k_ram_dout;
+wire [15:0] m68k_ram_A_dout;
+wire [15:0] m68k_ram_B_dout;
 wire nAS;
+
+assign is_tmnt = (tno == 4'd1);
+
+assign m68k_rom_addr = is_tmnt ? m68k_addr[18:1] : {1'b0, m68k_addr[17:1]};
 
 wire [7:0] pal_dout;
 
-wire [7:0] DB_OUT_k052109;	// Data from k052109
-wire [7:0] DB_OUT_k051960;	// Data from k051960
-wire [7:0] DB_OUT_k051962;	// Data from k051962
-wire [7:0] DB_OUT_k051937;	// Data from k051937
+wire [7:0] DB_OUT_k052109;	// CPU data from k052109
+wire [7:0] DB_OUT_k051960;	// CPU data from k051960
+wire [7:0] DB_OUT_k051962;	// CPU data from k051962
+wire [7:0] DB_OUT_k051937;	// CPU data from k051937
 wire [11:0] VA;				// Layer A palette and pixel
 wire [11:0] VB;				// Layer B palette and pixel
 wire [7:0] FX;					// Layer FIX palette and pixel
@@ -143,50 +156,22 @@ wire NFX, NOBJ, NVB, NVA;	// Pixel opaque signals (active high)
 wire ODTAC, VDTAC;			// DTACKs from sprite and plane chips
 wire NVBLK;
 
-// 256k * 16
-rom_main ROM_MAIN(
-	.clock(~clk_sys),	// clk_main
-	.address(ioctl_download ? rom_addr[17:0] : m68k_addr[18:1]),
-	.data({rom_data[7:0], rom_data[15:8]}),
-	.byteena(2'b11),
-	.wren(rom_68k_we),
-	.q(m68k_rom_dout)
-);
-
 wire [7:0] prio_addr;
 wire [7:0] prio_dout;
 assign prio_addr = {PRI2, PRI, VB[7], SHA, NFX, NOBJ, NVB, NVA};	// 2C6 = VB[7] ?
 
 // MiSTer specific: load 8-bit ROM from 16-bit data
-reg rom_prio_we, rom_lsb;
-always @(posedge clk_sys) begin
-	if (ioctl_download) begin
-		if (rom_prom2_we) begin
-			rom_lsb <= 1'b0;
-			rom_prio_we <= 1'b1;
-		end
-		if (rom_prio_we & !rom_lsb) begin
-			rom_lsb <= 1'b1;
-		end
-		if (rom_prio_we & rom_lsb) begin
-			rom_lsb <= 1'b0;
-			rom_prio_we <= 1'b0;
-		end
-	end else begin
-		rom_lsb <= 1'b0;
-		rom_prio_we <= 1'b0;
-	end
-end
-
-// clk_sys			_|'|_|'|_|'|_|'|_|'|_|'|_
-// rom_prom2_we	_____|'''|_______________
-// rom_prio_we		_________|'''''''|_______
-// rom_lsb			_____________|'''|_______
+byte_loader LOAD_PRIO(
+	.clk(clk_sys),
+	.en(ioctl_download),
+	.wein(rom_prom2_we),
+	.weout(rom_prio_we),
+	.lsb(rom_lsb)
+);
 
 // 256 * 8 (really 256 * 4)
 rom_prio ROM_PRIO(
 	.clock(~clk_sys),
-	//.clken(ce_main),
 	.address(ioctl_download ? {rom_addr[7:1], rom_lsb} : prio_addr),
 	.q(prio_dout),
 	.wren(rom_prio_we),
@@ -195,26 +180,43 @@ rom_prio ROM_PRIO(
 
 wire SHADOW = prio_dout[2];	// prio_dout[3] unused
 
-// 8k * 8 * 2
-ram_main RAM_MAIN_U(
+// 2 * 8k * 8 * 2
+// MIA uses both halves, TMNT only uses half B
+ram_main RAM_MAIN_A_U(
 	.clock(~clk_sys),
-	//.clken(ce_main),
+	.clken(~is_tmnt),
 	.address(m68k_addr[13:1]),
-	.q(m68k_ram_dout[15:8]),
+	.q(m68k_ram_A_dout[15:8]),
+	.wren(~NUWR & ~nW1CS),
+	.data(m68k_dout[15:8])
+);
+ram_main RAM_MAIN_A_L(
+	.clock(~clk_sys),
+	.clken(~is_tmnt),
+	.address(m68k_addr[13:1]),
+	.q(m68k_ram_A_dout[7:0]),
+	.wren(~NLWR & ~nW1CS),
+	.data(m68k_dout[7:0])
+);
+ram_main RAM_MAIN_B_U(
+	.clock(~clk_sys),
+	.clken(1'b1),
+	.address(m68k_addr[13:1]),
+	.q(m68k_ram_B_dout[15:8]),
 	.wren(~NUWR & ~nW2CS),
 	.data(m68k_dout[15:8])
 );
-ram_main RAM_MAIN_L(
+ram_main RAM_MAIN_B_L(
 	.clock(~clk_sys),
-	//.clken(ce_main),
+	.clken(1'b1),
 	.address(m68k_addr[13:1]),
-	.q(m68k_ram_dout[7:0]),
+	.q(m68k_ram_B_dout[7:0]),
 	.wren(~NLWR & ~nW2CS),
 	.data(m68k_dout[7:0])
 );
 
 // Everything below 100000 is full speed
-assign nDTACK = &{ODTAC, VDTAC, nAS | m68k_addr[20]};
+assign nDTACK = &{ODTAC, VDTAC, nAS | m68k_addr[20]} | ~sdram_dtack;
 
 // LS74
 reg OIPL;
@@ -270,12 +272,12 @@ always @(*) begin
 end
 
 assign nROMCS = &{U47[1:0]};	// Bottom ROMs
-assign nW1CS = U47[2];			// Top ROMs
+assign nW1CS = U47[2];			// TMNT:Top ROMs, MIA:Work RAM
 assign nW2CS = U47[3];			// Work RAM
 assign COLCS = U47[4];			// Palette RAM
 assign SYSWR = U47[6];			// Set PRI*
 
-reg [7:0] U45;	// CPU LS138
+reg [7:0] U45 /* synthesis keep */;	// CPU LS138
 always @(*) begin
 	case({U47[5], m68k_addr[16], m68k_rw, m68k_addr[4:3]})
 		5'b0_0000: U45 <= 8'b11111110;
@@ -290,9 +292,9 @@ always @(*) begin
 	endcase
 end
 
-assign IOWR = U45[0];	// Coin lockouts, GFX ROM read...
+assign IOWR = U45[0];	// Coin lockouts, Z80 IRQ, GFX ROM read...
 assign SNDDT = U45[1];	// Sound code
-assign AFR = U45[2];		// k051550 watchdog reset
+assign AFR = U45[2];		// TODO: k051550 watchdog reset
 
 assign SHOOT = U45[4];	// Read inputs
 assign DIP = U45[6];
@@ -322,47 +324,65 @@ always @(posedge SYSWR or posedge reset) begin
 	end
 end
 
+assign m68k_rom_ncs = is_tmnt ? (nROMCS & nW1CS) : nROMCS;
+
+reg m68k_rom_ncs_reg;
+always @(posedge clk_sys or posedge reset) begin
+	if (reset) begin
+		m68k_rom_ncs_reg <= 1'b1;
+		m68k_rom_req <= 1'b0;
+	end else begin
+		if (!m68k_rom_req) begin
+			if (m68k_rom_ncs_reg & ~m68k_rom_ncs)	// Falling edge
+				m68k_rom_req <= 1'b1;
+		end else
+			m68k_rom_req <= 1'b0;
+		m68k_rom_ncs_reg <= m68k_rom_ncs;
+	end
+end
+
 wire OEQ, PE;
-// 68k data input mux
-// OEQ == 0: Read video-side data bus
-// DIP3 == 0: M68K_DIN[3:0] <= dipswitch3;
-// DIP == 0, A[2:1] == 3: M68K_DIN[7:0] <= 8'hFF;
-// DIP == 0, A[2:1] == 2: M68K_DIN[7:0] <= INPUTS_4P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
-// DIP == 0, A[2:1] == 1: M68K_DIN[7:0] <= dipswitch2;
-// DIP == 0, A[2:1] == 0: M68K_DIN[7:0] <= dipswitch1;
-// SHOOT == 0, A[2:1] == 3: M68K_DIN[7:0] <= INPUTS_3P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
-// SHOOT == 0, A[2:1] == 2: M68K_DIN[7:0] <= INPUTS_2P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
-// SHOOT == 0, A[2:1] == 1: M68K_DIN[7:0] <= INPUTS_1P;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
-// SHOOT == 0, A[2:1] == 0: M68K_DIN[7:0] <= Service4, Service3, Service2, Service1, Coin4, Coin3, Coin2, Coin1
+// 68k data input mux - Control signals all active low
+// OEQ					Read video-side data bus
+// COLCS					Read palette RAM
+// nW2CS					Read work RAM B
+// nW1CS					TMNT: Read ROM, MIA: Read work RAM A
+// nROMCS				Read ROM
+// DIP3					M68K_DIN[3:0] <= dipswitch3;
+// DIP 	A[2:1] == 0	M68K_DIN[7:0] <= dipswitch1;
+// DIP 	A[2:1] == 1	M68K_DIN[7:0] <= dipswitch2;
+// DIP 	A[2:1] == 2	M68K_DIN[7:0] <= inputs_P4;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
+// DIP 	A[2:1] == 3	M68K_DIN[7:0] <= 8'hFF;
+// SHOOT	A[2:1] == 0	M68K_DIN[7:0] <= Service4, Service3, Service2, Service1, Coin4, Coin3, Coin2, Coin1
+// SHOOT	A[2:1] == 1	M68K_DIN[7:0] <= inputs_P1;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
+// SHOOT	A[2:1] == 2	M68K_DIN[7:0] <= inputs_P2;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
+// SHOOT	A[2:1] == 3	M68K_DIN[7:0] <= inputs_P3;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
 always @(*) begin
 	casez({OEQ, COLCS | ~m68k_rw, nW2CS | ~m68k_rw, nW1CS, nROMCS, DIP3, DIP, SHOOT, m68k_addr[2:1]})
-		10'b11_110z_zzzz: m68k_din <= m68k_rom_dout;	//m68k_rom_bot_dout;
-		10'b11_101z_zzzz: m68k_din <= m68k_rom_dout;	//m68k_rom_top_dout;
-		10'b11_011z_zzzz: m68k_din <= m68k_ram_dout;
+		10'b11_110z_zzzz: m68k_din <= m68k_rom_dout;
+		10'b11_101z_zzzz: m68k_din <= is_tmnt ? m68k_rom_dout : m68k_ram_A_dout;
+		10'b11_011z_zzzz: m68k_din <= m68k_ram_B_dout;
 		10'b10_111z_zzzz: m68k_din <= {8'h00, pal_dout};
 		
 		10'b11_1110_zzzz: m68k_din <= {12'h000, dipswitch3};
 
-		10'b11_1111_0100: m68k_din <= 16'h00FF;
-		10'b11_1111_0101: m68k_din <= {8'h00, P_start[3], P_attack3[3], P_attack2[3], P_attack1[3], P_down[3], P_up[3], P_right[3], P_left[3]};
-		10'b11_1111_0110: m68k_din <= {8'h00, dipswitch2};
-		10'b11_1111_0111: m68k_din <= {8'h00, dipswitch1};
+		10'b11_1111_0100: m68k_din <= {8'h00, dipswitch1};
+		10'b11_1111_0101: m68k_din <= {8'h00, dipswitch2};
+		10'b11_1111_0110: m68k_din <= {8'h00, inputs_P4};	//is_tmnt ? {8'h00, inputs_P4} : 16'h00FF;
+		10'b11_1111_0111: m68k_din <= 16'h00FF;
 
-		10'b11_1111_1000: m68k_din <= {8'h00, P_start[2], P_attack3[2], P_attack2[2], P_attack1[2], P_down[2], P_up[2], P_right[2], P_left[2]};
-		10'b11_1111_1001: m68k_din <= {8'h00, P_start[1], P_attack3[1], P_attack2[1], P_attack1[1], P_down[1], P_up[1], P_right[1], P_left[1]};
-		10'b11_1111_1010: m68k_din <= {8'h00, P_start[0], P_attack3[0], P_attack2[0], P_attack1[0], P_down[0], P_up[0], P_right[0], P_left[0]};
-		10'b11_1111_1011: m68k_din <= {8'h00, service, P_coin};
+		10'b11_1111_1000: m68k_din <= {8'h00, inputs_service, inputs_coin};
+		10'b11_1111_1001: m68k_din <= {8'h00, inputs_P1};
+		10'b11_1111_1010: m68k_din <= {8'h00, inputs_P2};
+		10'b11_1111_1011: m68k_din <= {8'h00, inputs_P3};	//is_tmnt ? {8'h00, inputs_P3} : 16'h00FF;
 		
 		10'b0z_zzzz_zzzz: m68k_din <= {2{k007644_reg}};
 
-		default: m68k_din <= 16'h0000;	//m68k_din <= 16'bzzzzzzzz_zzzzzzzz;
+		default: m68k_din <= 16'h0000;
 	endcase
 end
 
 // V24M = O24M = 24M
-
-wire [15:1] AB = m68k_addr[15:1];	// Just 2x LS245 buffers
-
 assign NREAD = ~m68k_rw | ~CPU_RUN;
 assign OVCS = ~&{m68k_addr[20], ~nAS};
 assign OBJCS = ~((m68k_addr[18:17] == 2'd2) & ~OVCS);
@@ -397,7 +417,7 @@ end
 
 // Custom chips don't always have the time to register the DB_IN value before it changes
 // Certainly caused by async clocks, see D23, D7... in k052109.
-// This is an attempt to extend the time they stay on the bus 1 clk_sys longer
+// This shifts the time they stay on the bus by 1 clk_sys
 always @(posedge clk_sys) begin
 	DB_IN_del <= DB_IN_imm;
 	DB_IN <= DB_IN_del;
@@ -434,7 +454,7 @@ planes PLANES(
 	
 	.DB_IN(DB_IN),
 	.m68k_addr_16(m68k_addr[16]),
-	.AB(AB),
+	.AB(m68k_addr[15:1]),
 	.nUDS(nUDS),
 	
 	.DB_OUT_k052109(DB_OUT_k052109),
@@ -479,7 +499,7 @@ sprites SPRITES(
 	.HVOT(HVOT),
 	
 	.DB_IN(DB_IN),
-	.AB(AB),
+	.AB(m68k_addr[15:1]),
 	.nUDS(nUDS),
 	
 	.DB_OUT_k051960(DB_OUT_k051960),
@@ -512,7 +532,7 @@ end
 TMNTColor color(
 	.clk_sys(clk_sys),
 	.V6M(V6M),
-	.AB(AB[12:1]),
+	.AB(m68k_addr[12:1]),
 	.CD(CD),
 	.SHADOW(SHADOW),
 	.CPU_DIN(m68k_dout[7:0]),
@@ -526,22 +546,27 @@ TMNTColor color(
 	.BLUE_OUT(video_b)
 );
 
-/*TMNTAudio audio(
-	.nRESET(~reset),
+TMNTAudio audio(
+	.reset(reset),
 	.clk_sys(clk_sys),
+	.ce_snd_p(ce_snd_p),
+	.ce_snd_n(ce_snd_n),
+	.ce_snd_half(ce_snd_half),
 	.ioctl_download(ioctl_download),
 	.rom_addr(rom_addr),
 	.rom_data(rom_data),
 	.rom_z80_we(rom_z80_we),
-	.rom_theme_we(rom_theme_we),
-	.M68K_dout(M68K_dout),	// TODO
+	.rom_007232_we(rom_007232_we),
+	.rom_uPD7759C_we(rom_uPD7759C_we),
+	.m68k_dout(m68k_dout),
 	.theme_rom_req(theme_rom_req),
 	.theme_rom_addr(theme_rom_addr),
-	.theme_rom_dout(theme_rom_dout)
+	.theme_rom_dout(theme_rom_dout),
 	
-	//.SNDON,		// TODO
-	//.SNDDT,		// TODO
+	.SNDON(SNDON),
+	.SNDDT(SNDDT),
 	
-);*/
+	.mixdown(audio_mono)
+);
 
 endmodule

@@ -26,22 +26,3 @@ always @(posedge CLK or negedge nCLEAR) begin
 end
 
 endmodule
-
-/*module KREG(
-	input CLK,
-	input nCLEAR,
-	input [3:0] DIN,
-	input LOAD,
-	output reg [3:0] DOUT
-);
-
-	always @(posedge CLK or negedge CLEAR) begin
-		if (!nCLEAR) begin
-			DOUT <= 4'b0000;
-		end else begin
-			if (LOAD)
-				DOUT <= DIN;
-		end
-	end
-
-endmodule*/

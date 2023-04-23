@@ -240,13 +240,13 @@ always @(posedge clk_3M)
 
 assign RAM_din = RAM_DATA_WR ? RAM_din_latch : 8'h00;
 
-ram_k051960 RAMA(RAM_addr, clk_24M, RAM_din, RAM_A_WE & AB19, RAM_A_dout);
-ram_k051960 RAMB(RAM_addr, clk_24M, RAM_din, RAM_B_WE & AB19, RAM_B_dout);
-ram_k051960 RAMC(RAM_addr, clk_24M, RAM_din, RAM_C_WE & AB19, RAM_C_dout);
-ram_k051960 RAMD(RAM_addr, clk_24M, RAM_din, RAM_D_WE & AB19, RAM_D_dout);
-ram_k051960 RAME(RAM_addr, clk_24M, RAM_din, RAM_E_WE & AB19, RAM_E_dout);
-ram_k051960 RAMF(RAM_addr, clk_24M, RAM_din, RAM_F_WE & AB19, RAM_F_dout);
-ram_k051960 RAMG(RAM_addr, clk_24M, RAM_din, RAM_G_WE & AB19, RAM_G_dout);
+ram_k051960 RAMA(RAM_addr, ~clk_24M, RAM_din, RAM_A_WE & AB19, RAM_A_dout);
+ram_k051960 RAMB(RAM_addr, ~clk_24M, RAM_din, RAM_B_WE & AB19, RAM_B_dout);
+ram_k051960 RAMC(RAM_addr, ~clk_24M, RAM_din, RAM_C_WE & AB19, RAM_C_dout);
+ram_k051960 RAMD(RAM_addr, ~clk_24M, RAM_din, RAM_D_WE & AB19, RAM_D_dout);
+ram_k051960 RAME(RAM_addr, ~clk_24M, RAM_din, RAM_E_WE & AB19, RAM_E_dout);
+ram_k051960 RAMF(RAM_addr, ~clk_24M, RAM_din, RAM_F_WE & AB19, RAM_F_dout);
+ram_k051960 RAMG(RAM_addr, ~clk_24M, RAM_din, RAM_G_WE & AB19, RAM_G_dout);
 
 // Sprite RAM CPU read
 wire [7:0] EXRAM_D_LATCH;
@@ -802,15 +802,5 @@ assign Y141 = ~&{~VBLANK_SYNC, ~&{~VBLANK_SYNC, ~clk_3M, L101_Q}};
 assign X148 = ~Y141;
 assign Y81 = ~&{~&{RAM_DATA_WR, VBLANK_SYNC}, ~&{~VBLANK_SYNC, clk_3M}, ~&{~VBLANK_SYNC, ~clk_3M, L126_Q}};
 assign Y73 = ~Y81;
-
-
-// DEBUG
-
-reg [10:0] debug_copy_counter /* synthesis keep */;
-reg [6:0] debug_parse_counter /* synthesis keep */;
-always @(*) begin
-	debug_copy_counter <= {W101_QD, ATTR_A};
-	debug_parse_counter <= PARSE_A;
-end
 
 endmodule

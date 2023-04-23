@@ -1,13 +1,8 @@
 // TMNT arcade core
-// Simulation blind schematic copy version
 // Sean Gonsalves 2022
 // k052109: Plane address generator
 // Generates GFX ROM address in sequence according to contents of VRAM
-// Handles coarse scrolling only, fine scrolling is done in the k051962
-
-// CPU access read and write seems ok
-
-`timescale 1ns/100ps
+// Handles X coarse scrolling only, fine X scrolling is done in the k051962
 
 module k052109 (
 	input nRES,
@@ -38,7 +33,7 @@ module k052109 (
 	// VRAM interface
 	output [15:0] VD_OUT,
 	input [15:0] VD_IN,
-	output [12:0] RA,
+	output reg [12:0] RA,
 	output [1:0] RCS,
 	output [2:0] ROE,
 	output [2:0] RWE,
@@ -50,66 +45,64 @@ module k052109 (
 	output VDE,	// ?
 	
 	// k051962 interface
-	output [7:0] COL,				// Tile COL attribute bits
+	output [7:0] COL,				// Tile attribute bits
 	output ZA1H, ZA2H, ZA4H,	// Plane A fine scroll
 	output ZB1H, ZB2H, ZB4H,	// Plane B fine scroll
-	output BEN,		// Reg 1E80 write
+	output BEN,						// Reg 1E80 write
 	
 	output DB_DIR
 );
 
-wire [8:0] PXH;	// Not used anymore ?
+wire [8:0] PXH;
 wire [8:3] PXHF;	// H tile number, affected by FLIP_SCREEN
 wire [7:0] ROW;
 wire [10:0] MAP_A;
 wire [10:0] MAP_B;
 wire [2:0] ROW_A;
 wire [2:0] ROW_B;
+reg [2:0] ROW_F;
 wire [9:0] SCROLL_RAM_A;
 
-reg [5:0] REG1C00;	// Bits 6 and 7 unused ?
+reg [6:0] REG1C00;	// Bit 7 unused
 reg [7:0] REG1C80;
 reg [3:0] REG1D00;
 reg [7:0] REG1D80;
 reg [7:0] RMRD_BANK;
 reg [7:0] REG1F00;
 
+wire nCPU_ACCESS;
+wire [5:0] FLIP_ADDER;
+wire FLIP_SCREEN;
 
 // VRAM ADDRESS
 
-// E40: Enable/disable scrolling entirely
+// E40: Row scroll interval
 assign E40 = (REG1C80[0] & PXH[5]) | (REG1C80[3] & ~PXH[5]);	
 
 // Flip H coordinate for scrolling if FLIP_SCREEN set
-wire [5:0] FLIP_ADDER;
-wire FLIP_SCREEN;
 assign FLIP_ADDER = PXHF + {6{FLIP_SCREEN}};
 
 // X/Y scroll table switch
 // X scroll is raster based with selectable interval
 // Y scroll is tile column based (320 / 8 = only 40 useful values)
 wire AA38;
-assign SCROLL_RAM_A = AA38 ? {1'b1, ROW[7:3], ROW[2:0] & {3{E40}}, PXH[3]} : {4'b0000, FLIP_ADDER};
+assign SCROLL_RAM_A = AA38 ? {1'b1, ROW[7:3], E40 ? ROW[2:0] : 3'd0, PXH[3]} : {4'b0000, FLIP_ADDER};
 
-// T5As:
-wire nCPU_ACCESS;
-wire [12:0] RA_MUX_A;
-wire [12:0] RA_MUX_B;
-wire [12:0] RA_MUX_C;
-// PXH[2:1]	Address									Description
-// 0			110 SCROLL_RAM_A						Scroll data
-// 1			01 MAP_A[10:0]							Tilemap A
-// 2			10 MAP_B[10:0]							Tilemap B
-// 3			00 ROW[7:3] PXH[8:5] PXHF[4:3]	Fixmap
-assign RA_MUX_A = ~PXH[1] ? {3'b110, SCROLL_RAM_A} : {2'b01, MAP_A[10:0]};
-assign RA_MUX_B = PXH[1] ? {2'b00, ROW[7:3], PXHF} : {2'b10, MAP_B[10:0]};
-assign RA_MUX_C = ~PXH[2] ? RA_MUX_A : RA_MUX_B;
-assign RA = nCPU_ACCESS ? RA_MUX_C : AB[12:0];
+// VRAM address mux
+always @(*) begin
+	casez({nCPU_ACCESS, PXH[2:1]})
+		3'b0zz: RA <= AB[12:0];
+		3'b100: RA <= {3'b110, SCROLL_RAM_A};		// Scroll data
+		3'b101: RA <= {2'b01, MAP_A[10:0]};			// Tilemap A
+		3'b110: RA <= {2'b10, MAP_B[10:0]};			// Tilemap B
+		3'b111: RA <= {2'b00, ROW[7:3], PXHF};		// Tilemap Fix
+	endcase
+end
 
 wire CPU_VRAM_CS0, CPU_VRAM_CS1, J140_nQ, J151;
 assign ROE[0] = nCPU_ACCESS ? J140_nQ : RDEN;
 assign ROE[1] = nCPU_ACCESS ? J151 : RDEN;
-assign ROE[2] = nCPU_ACCESS ? 1'b1 : RDEN;	// Only CPU access ? What's the point ?
+assign ROE[2] = nCPU_ACCESS ? 1'b1 : RDEN;		// Optional VRAM used as CPU RAM (thanks Jotego)
 
 assign RCS[0] = nCPU_ACCESS ? 1'b0 : CPU_VRAM_CS0;
 assign RCS[1] = nCPU_ACCESS ? 1'b0 : CPU_VRAM_CS1;
@@ -118,7 +111,7 @@ assign RCS[1] = nCPU_ACCESS ? 1'b0 : CPU_VRAM_CS1;
 // Clocks
 
 FDO J140(nclk_12M, clk_6M, RES_SYNC, J140_Q, J140_nQ);
-assign J151 = J140_Q & REG1C00[5];
+assign J151 = J140_Q & REG1C00[6];
 
 FDO H79(clk_6M, ~PE, nCPU_ACCESS, H79_Q);
 assign VDE = H79_Q | RMRD;
@@ -157,23 +150,29 @@ assign RDEN = K77_Q[3];
 FDO C64(BEN, DB_IN[2], RES_SYNC, C64_Q);
 assign TILE_FLIP_Y = COL[1] & C64_Q;
 
-// Latch row number for fix tile
-wire [2:0] ROW_F;
-FDG CC59(PXH[1], ROW[2], RES_SYNC, ROW_F[2]);
-FDG CC68(PXH[1], ROW[1], RES_SYNC, ROW_F[1]);
-FDG BB39(PXH[1], ROW[0], RES_SYNC, ROW_F[0]);
+// Latch row number for fix tile - CC59, CC68, BB39
+always @(posedge PXH[1] or negedge RES_SYNC) begin
+	if (!RES_SYNC)
+		ROW_F <= 3'd0;
+	else
+		ROW_F <= ROW[2:0];
+end
 
 // Select tile line number according to current raster line and Y scroll
-// T5As
-wire [2:0] VC_MUX_B;
-wire [2:0] VC_MUX_C;
-// PXH[2:1]	Address						Description
-// 0			CC59_Q CC68_Q BB39_Q		Fix
-// 1			CC59_Q CC68_Q BB39_Q		Fix
-// 2			ROW_A[2:0] 					Layer A
-// 3			ROW_B[2:0]					Layer B
-assign VC_MUX_B = PXH[1] ? ROW_B[2:0] : ROW_A[2:0];
-assign VC_MUX_C = ~PXH[2] ? ROW_F : VC_MUX_B;
+// PXH[2:1]	Address			Description
+// 0			ROW_F[2:0]		Fix
+// 1			ROW_F[2:0]		Fix
+// 2			ROW_A[2:0] 		Layer A
+// 3			ROW_B[2:0]		Layer B
+reg [2:0] VC_MUX;
+always @(*) begin
+	case(PXH[2:1])
+		2'd0: VC_MUX <= ROW_F;
+		2'd1: VC_MUX <= ROW_F;
+		2'd2: VC_MUX <= ROW_A[2:0];
+		2'd3: VC_MUX <= ROW_B[2:0];
+	endcase
+end
 
 reg [10:0] CPU_ROM_A;
 reg [10:0] RENDER_ROM_A;
@@ -185,9 +184,10 @@ always @(*) begin
 		CPU_ROM_A <= AB[12:2];
 	end
 	
-	if (!nCPU_ACCESS) begin
-		// Why is this needed ? Really controlled by nCPU_ACCESS ?
-		RENDER_ROM_A[2:0] <= VC_MUX_C ^ {3{TILE_FLIP_Y}};
+	//if (!nCPU_ACCESS) begin
+	if (nCPU_ACCESS) begin		// TESTING
+		// Why is this needed ?
+		RENDER_ROM_A[2:0] <= TILE_FLIP_Y ? ~VC_MUX : VC_MUX;
 	end
 end
 
@@ -337,9 +337,9 @@ wire D23  /* synthesis keep */ ;
 assign D23 = ~&{(AB[12:7] == 6'b1_1100_0), REG_WR};
 always @(posedge D23 or negedge RES_SYNC) begin
 	if (!RES_SYNC)
-		REG1C00 <= 6'h00;
+		REG1C00 <= 7'h00;
 	else
-		REG1C00 <= DB_IN[5:0];
+		REG1C00 <= DB_IN[6:0];
 end
 
 assign D7 = ~&{(AB[12:7] == 6'b1_1100_1), REG_WR};
@@ -389,9 +389,9 @@ end
 
 // Layer A and B scroll
 
-assign BB33 = |{PXHF[8:7], ~PXHF[6:5], PXHF[4], PXH[3]};
+assign BB33 = |{PXHF[8:7], ~PXHF[6:5], PXHF[4], PXH[3]};	// 001100xxx
 
-assign X57 = ~|{ROW[7:0]};
+assign X57 = (ROW[7:0] == 8'd0);
 assign READ_SCROLL_A = &{~G4_Q, PXH[5], REG1C80[1] | X57, RES_SYNC};
 assign READ_SCROLL_B = &{~G4_Q, ~PXH[5], REG1C80[4] | X57, RES_SYNC};
 
@@ -438,12 +438,12 @@ reg [7:0] COL_ATTR_B;
 always @(posedge J140_nQ)
 	COL_ATTR_B <= VD_IN[15:8];
 
-assign F130 = &{clk_6M, REG1C00[5], ~PXH[0]};
+assign F130 = &{clk_6M, REG1C00[6], ~PXH[0]};
 
 wire [7:0] COL_MUX;
 assign COL_MUX = F130 ? COL_ATTR_B : COL_ATTR_A;
 
-// COL_MUX[3:2]	{CAB, COL[3:2] out (COL_MUX_A)}
+// COL_MUX[3:2]	{CAB, COL[3:2] or (COL_MUX_A)}
 // 0					REG1D80[3:0]
 // 1					REG1D80[7:4]
 // 2					REG1F00[3:0]
@@ -459,6 +459,6 @@ always @(*) begin
 	endcase
 end
 	
-assign COL = RMRD ? RMRD_BANK : {COL_MUX[7:4], REG1C00[5] ? COL_MUX[3:2] : COL_MUX_A, COL_MUX[1:0]};
+assign COL = RMRD ? RMRD_BANK : {COL_MUX[7:4], REG1C00[6] ? COL_MUX[3:2] : COL_MUX_A, COL_MUX[1:0]};
 
 endmodule

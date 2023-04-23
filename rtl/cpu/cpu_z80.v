@@ -1,8 +1,9 @@
 // Z80 CPU plug into TV80 core
 
 module cpu_z80(
-	input clk,
 	input nRESET,
+	input clk,
+	input clken,
 	input [7:0] Z80_DIN,
 	output [7:0] Z80_DOUT,
 	output [15:0] Z80_ADDR,
@@ -18,7 +19,7 @@ module cpu_z80(
 	T80s cpu(
 		.RESET_n(nRESET),
 		.CLK(clk),
-		.CEN(1),
+		.CEN(clken),
 		.WAIT_n(nWAIT),
 		.INT_n(nINT),
 		.NMI_n(nNMI),

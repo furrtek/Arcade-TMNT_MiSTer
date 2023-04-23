@@ -15,6 +15,7 @@ module k052109_scroll(
 
 // Cell names for layer A only, layer B instance has identical logic
 
+
 // X scroll
 // Catch X scroll value LSBs from VRAM
 FDN AA2(PXH[1], PXH[3], READ_SCROLL, AA2_Q);
@@ -41,6 +42,7 @@ assign MAP[5:0] = PXHF + ADD_X[8:3];
 wire [2:0] ADD_X_F;
 assign ADD_X_F = ADD_X[2:0] ^ {3{FLIP_SCREEN}};
 assign FINE = ADD_X_F + PXH[2:0];
+
 
 // Y scroll
 assign BB30 = ~|{PXH[2], BB33 & ~SCROLL_Y_EN} & RES_SYNC;

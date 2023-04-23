@@ -107,7 +107,6 @@ module sprites(
 	);
 
 	// Sprite VRAM
-	//ram_sim #(8, 10, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/vram_spr_8.txt") RAM_SPR(OA, OWR, 1'b0, OD_out, OD_in);		// 1k * 8
 	ram_sprites RAM_SPRITES(
 		.clock(~clk_main),
 		.address(OA),
@@ -117,16 +116,6 @@ module sprites(
 	);
 	
 	assign spr_rom_addr = {OC[4], CA[17:10], CA_DEC, CA[3]};
-	
-	// ../../sim/roms/
-	//rom_sim #(32, 19, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_sprites_32.txt") ROM_SPRITES({OC[4], CA[17:10], CA_DEC, CA[3]}, spr_rom_dout);	// 512k * 32
-	/*rom_sprites ROM_SPRITES(
-		.clock(clk_main),
-		.address({OC[4], CA[17:10], CA_DEC, CA[3]}),
-		.q(spr_rom_dout),
-		.wren(0),		// TODO
-		.data(16'h0)	// TODO
-	);*/
 	
 	// Chunky to planar (routing on PCB)
 	assign spr_rom_planar = {
@@ -172,7 +161,8 @@ module sprites(
 	};
 	
 	// MiSTer specific: load 8-bit ROM from 16-bit data
-	reg rom_dec_we, rom_lsb;
+	// TODO: Use byte_loader
+	/*reg rom_dec_we, rom_lsb;
 	always @(posedge clk) begin
 		if (ioctl_download) begin
 			if (rom_prom1_we) begin
@@ -190,16 +180,18 @@ module sprites(
 			rom_lsb <= 1'b0;
 			rom_dec_we <= 1'b0;
 		end
-	end
-
-	// clk_sys			_|'|_|'|_|'|_|'|_|'|_|'|_
-	// rom_prom1_we	_____|'''|_______________
-	// rom_dec_we		_________|'''''''|_______
-	// rom_lsb			_____________|'''|_______
-
-	//rom_sim #(8, 8, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/prom_sprdec_8.txt") ROM_SPRDEC({OC[4], CA[17:11]}, PROM_dout);	// 256 * 8
+	end*/
 	
-	// 256 * 8 (really 256 * 4)
+	// MiSTer specific: load 8-bit ROM from 16-bit data
+	byte_loader LOAD_PRIO(
+		.clk(clk),
+		.en(ioctl_download),
+		.wein(rom_prom1_we),
+		.weout(rom_dec_we),
+		.lsb(rom_lsb)
+	);
+
+	// 256 * 4
 	rom_dec ROM_DEC(
 		.clock(~clk),
 		.address(ioctl_download ? {rom_addr[7:1], rom_lsb} : {OC[4], CA[17:11]}),

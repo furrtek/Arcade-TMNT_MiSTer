@@ -1,0 +1,6 @@
+[submodule "jt51"]
+	path = jt51
+	url = https://github.com/jotego/jt51.git
+[submodule "jt7759"]
+	path = jt7759
+	url = https://github.com/jotego/jt7759.git

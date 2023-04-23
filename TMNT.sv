@@ -16,10 +16,7 @@
 //
 //============================================================================
 
-// TODO: Merge "MiSTer specific: load 8-bit ROM from 16-bit data" blocks into rom_loader.v by using
-// a look up to know if roms are 8 or 16 bits
-
-// Last news (latest at end)
+// Dev log: (latest at end)
 // Loads 68k ROM ok. Executes RAM/ROM test ok but gets stuck because of error detected.
 // Compiling with HDMI enabled to see if the test screen can be seen.
 // Result: black video. Disabling HDMI again and climbing back up video output to find the problem.
@@ -172,16 +169,99 @@
 // Register AF1 was being fed one bit too much (AH27_S[4:0], sum and carry, instead of just the sum AH27_S[3:0]).
 // This fixed the 128x128 sprites.
 
-// Clocks:
+// Adding theme loading and playback...
+// If the Z80 RAM or ROM checksum fails, a sound effect will be played in a loop.
+// The Z80 code relies on the YM2151 timer to catch interrupts, it sits in a loop waiting for the timer B flag.
+// Soundcode 0 is sent at startup (reset Z80), then 7D to start playing the theme song.
+// Z80 RAM and ROM checks pass ok. Connected JT51, the code now exits the busy loop when the timer B flag is set.
+// Z80 nINT never goes low. SNDON never goes high. The 68k writes 08 to A00001 at startup whatever the state of
+// the "Demo sounds" DIP switch, this should trigger a Z80 interrupt.
+// INT16EN works ok so IOWR must be ok.
+// The Z80 IRQ is cleared by nIORQ, which always goes low during an interrupt ack bus cycle.
+// Fixed wrong polarity for resetting the nINT register.
+
+// There aren't any more writes to SNDON during attract mode, probably caused by the DIPs being read incorrectly.
+// dipswitch2 is read from byte 0A0013 @ 1232 at startup. The read data is 00FF instead of 007C.
+// dipswitch2 is read when:
+// {OEQ, COLCS | ~m68k_rw, nW2CS | ~m68k_rw, nW1CS, nROMCS, DIP3, DIP, SHOOT, m68k_addr[2:1]} == b11_1111_0110
+// m68k_addr[2:1] == b10, doesn't match 0A0013.
+// Fixed by inverting m68k_addr[2:1] as visible on schematic.
+
+// Fixed typo (case) causing snd_code to not be loaded by m68k_dout. Getting YM sound now but no theme.
+// Fixed theme_en getting toggled randomly, value was set on wrong polarity.
+// theme_addr incrementing ok but theme_rom_dout stays at 0. Theme data is requested ok but the SDRAM controller
+// never has a chance to start the run because sprite and tile requests take up all the time.
+// Testing spacing of sprite and tile requests at 3MHz instead of 6MHz. Sprites ok but tiles sometimes shifted,
+// also theme sound corrupt. Theme data bit order was wrong. Phase shifted tiles_rom_req but glitches remain.
+
+// Moved 68k data to SDRAM in order to fit remaining sample ROMs in BRAM.
+// Had to fix the output timing of the SDRAM controller, which was still based on 4-word bursts.
+// Everything works ok during the first attract mode loop, but the 68k crashes on the 2nd. Certainly due to the
+// 68k data not arriving in time from the SDRAM.
+
+// Attempt to improve SDRAM efficiency:
+// Moving 68k and theme to bank 0
+// Moving sprites and tiles to bank 1
+// Moving SDRAM data input to sdram_mux instead of sdram causes POST to almost always fail on 68k ROMs. Unstable.
+// Reverted back to having sdram register input data, POST passes, no crashes.
+// Tile line glitches that seems related to y scroll, tried triggering tiles_rom_req on tiles_rom_addr changes but no
+// effect, so it must be a timing issue in k052109 causing incorrect rom addresses to be output.
+// Cleaned up k052109 and the issue seems to be gone ?
+
+// Connected JT7759.
+// No k007232 audio.
+// ROMs weren't loaded properly when the core was started from the menu. Was caused by incorrect map attribute in MRA
+// which was interpreted differently by the mra.exe tool and produced correct TMNT.rom by chance. Fixed MRA.
+// After adding the MIA loader, TMNT roms didn't load properly anymore. Caused by "tno" not being sent when loading
+// the bitstream via USB Blaster. Works ok when loaded the normal way via the MiSTer menu.
+// TODO: MIA stuff, see AND gates on 051962 page, disable unused sound chips.
+
+
+// Required clocks:
+// 640kHz for the TMNT theme playback
+// 640kHz for the uPD7759
+// 3.58MHz for the Z80 and sound
+// 24MHz for the 68000 and video
+
 // clk_sys	96MHz
 // ce_main	Clock enable pulse at 96/4 = 24 MHz
 // ce_pix	Clock enable pulse at 96/16 = 6 MHz
+// ce_z80	Clock enable pulse at 96/27 = 3.56 MHz
 
 // clk_sys	_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|_|'|
 // ce_main	_|'''|___________|'''|___________|'''|___________|'''|___________|'''|___________|'''|__________
 // clk_div	011112222333300001111222233330000111122223333000011112222333300001111222233330000111122223333000
 // clk_main _____|'''''''|_______|'''''''|_______|'''''''|_______|'''''''|_______|'''''''|_______|'''''''|__
 // ce_pix	_|'''|___________________________________________________________|'''|__________________________
+
+// TMNT ROMs:
+// 68k		384kB	16bit	SDRAM	0x0000000	J17 K17 J15 K15
+// Z80		32kB	8bit	BRAM					G13
+// Tiles		1MB	32bit	SDRAM 0x1000000	H27 K27
+// Sprites	2MB	32bit	SDRAM 0x1200000	H4 K4 H6 K6
+// k007232	128kB 8bit	BRAM					C13
+// uPD7759	128kB 8bit	BRAM					D18
+// Theme		512kB	16bit	SDRAM 0x0100000	D5
+// Dec		256B	4bit	BRAM					G7
+// Prio		256B	4bit	BRAM					G19
+
+// MIA ROMs:
+// 68k		256kB	16bit	SDRAM	0x0000000	H17 J17
+// Z80		32kB	8bit	BRAM					F4
+// Tiles		256kB	32bit	SDRAM 0x1000000	F28 H28 I28 K28
+// Sprites	1MB	32bit	SDRAM 0x1200000	J4 H4
+// k007232	128kB 8bit	BRAM					D4
+// Prio		256B	4bit	BRAM					F16
+
+// RAMs:
+// 68k		16kB	16bit	BRAM				J13 K13
+// Z80		2kB	8bit	BRAM
+// Palette	4kB	16bit	BRAM				F22 F23
+// Tiles		16kB	16bit	BRAM				G27 G28
+// Sprites	1kB	8bit	BRAM				G8
+//	Linebufs	1.6kB	13bit	BRAM
+
+// BRAM total: 32k + 256 + 16k + 2k + 4k + 16k + 1k + 1.6k = 73kB
 
 module emu
 (
@@ -337,6 +417,8 @@ module emu
 	input         OSD_STATUS
 );
 
+wire signed [15:0] audio_mono;
+
 ///////// Default values for ports not used in this core /////////
 
 assign ADC_BUS  = 'Z;
@@ -350,9 +432,9 @@ assign VGA_F1 = 0;
 assign VGA_SCALER = 0;
 assign HDMI_FREEZE = 0;
 
-assign AUDIO_S = 0;
-assign AUDIO_L = 0;
-assign AUDIO_R = 0;
+assign AUDIO_S = 1;
+assign AUDIO_L = audio_mono;
+assign AUDIO_R = audio_mono;
 assign AUDIO_MIX = 0;
 
 assign LED_DISK = 0;
@@ -360,11 +442,6 @@ assign LED_POWER = 0;
 assign BUTTONS = 0;
 
 //////////////////////////////////////////////////////////////////
-
-//wire [1:0] ar = status[9:8];
-
-//assign VIDEO_ARX = (!ar) ? 12'd4 : (ar - 1'd1);
-//assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
 
 assign VIDEO_ARX = 12'd4;
 assign VIDEO_ARY = 12'd3;
@@ -383,28 +460,14 @@ localparam CONF_STR = {
 	"-;",
 	"DIP;",
 	"O9,CPU,RUN,STOP;",
-	/*"O34,Noise,White,Red,Green,Blue;",
-	"-;",
-	"P1,Test Page 1;",
-	"P1-;",
-	"P1-, -= Options in page 1 =-;",
-	"P1-;",
-	"P1O5,Option 1-1,Off,On;",
-	"-;",
-	"P2,Test Page 2;",
-	"P2-;",
-	"P2-, -= Options in page 2 =-;",
-	"P2-;",
-	"P2O67,Option 2,1,2,3,4;",
-	"-;",
-	"-;",
-	"T0,Reset;",*/
+	"T0,Reset;",
+	"J1,A,B,C,Start,Coin,Service;",
 	"R0,Reset and close OSD;",
 	"DEFMRA,tmnt.mra;",
 	"V,v",`BUILD_DATE 
 };
 
-assign CPU_RUN = ~status[9];
+assign CPU_RUN = ~status[9];	// DEBUG
 
 wire forced_scandoubler;
 wire [1:0] buttons;
@@ -416,26 +479,24 @@ wire [31:0] joystick_2;
 wire [31:0] joystick_3;
 wire [15:0] ioctl_index;
 wire [15:0] ioctl_dout;
-//wire [7:0] ioctl_din;
 wire [26:0] ioctl_addr;
 wire [15:0] sdram_sz;		// TODO: Use this to know if there's enough SDRAM installed
 wire ioctl_download, ioctl_wr, ioctl_wait;
 
 hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 (
-	.clk_sys(clk_sys),
-	.HPS_BUS(HPS_BUS),
+	.clk_sys,
+	.HPS_BUS,
 	.EXT_BUS(),
 	.gamma_bus(),
 
 	.conf_str(CONF_STR),
-	.forced_scandoubler(forced_scandoubler),
+	.forced_scandoubler,
 
-	.buttons(buttons),
-	.status(status),
-	//.status_menumask({status[5]}),
+	.buttons,
+	.status,
 	
-	.ps2_key(ps2_key),
+	.ps2_key,
 	
 	.joystick_0,
 	.joystick_1,
@@ -443,17 +504,13 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 	.joystick_3,
 	
     // ARM -> FPGA download
-	.ioctl_download, 		// signal indicating an active download
-	.ioctl_index,			// menu index used to upload the file
+	.ioctl_download,
+	.ioctl_index,
 	.ioctl_wr,
-	.ioctl_addr,         // in WIDE mode address will be incremented by 2
+	.ioctl_addr,         // In WIDE mode address is incremented by 2
 	.ioctl_dout,
-	//.ioctl_upload,   		// signal indicating an active upload
-	//.ioctl_upload_req,
-	//.ioctl_din,
-	//.ioctl_rd,
-	//.ioctl_file_ext,
 	.ioctl_wait,
+	
 	.sdram_sz
 );
 
@@ -464,25 +521,30 @@ always @(posedge clk_sys) begin
 		dips[ioctl_addr[1:0]] <= ioctl_dout[7:0];
 end
 
-// Retrieve Title No. - 1 = TMNT - Unused for now
+// Retrieve Title No.
+// 1 = TMNT
+// 2 = MIA
 reg [3:0] tno;
 always @(posedge clk_sys) begin
-   if (ioctl_wr & (ioctl_index == 1))
-		tno <= ioctl_dout[3:0];
+	tno <= 4'd1;	// TMNT DEBUG
+   //if (ioctl_wr & (ioctl_index == 1))
+	//	tno <= ioctl_dout[3:0];
 end
 
-wire rom_68k_we, rom_z80_we, rom_prom1_we, rom_prom2_we, rom_theme_we;
+wire rom_68k_we, rom_z80_we, rom_prom1_we, rom_prom2_we, rom_theme_we, rom_007232_we, rom_uPD7759C_we;
+wire rom_tiles_we, rom_sprites_we;
 wire [15:0] rom_data;
 wire [25:0] rom_addr;
 wire [1:0] rom_byteena;
-	
-rom_loader ROM_LOADER(
+
+rom_loader LOADER(
 	.reset,
 	.clk_sys,
 	.load_en(ioctl_index == 16'd0),
 	.ioctl_addr(ioctl_addr[25:0]),
 	.ioctl_dout,
 	.ioctl_wr,
+	.tno,
 	
 	.rom_68k_we,
 	.rom_z80_we,
@@ -491,6 +553,8 @@ rom_loader ROM_LOADER(
 	.rom_tiles_we,
 	.rom_sprites_we,
 	.rom_theme_we,
+	.rom_007232_we,
+	.rom_uPD7759C_we,
 	
 	.rom_addr,	// Word-based for 16-bit ROMs
 	.rom_data
@@ -518,36 +582,46 @@ wire [1:0] SDRAM_BS;
 wire SDRAM_BURST;
 wire SDRAM_WR, SDRAM_RD;
 
+wire spr_rom_req;
 wire [18:0] spr_rom_addr;
 wire [31:0] spr_rom_dout;
 
+wire tiles_rom_req;
 wire [17:0] tiles_rom_addr;
 wire [31:0] tiles_rom_dout;
 
 wire theme_rom_req;
 wire [17:0] theme_rom_addr;
-wire [15:0] theme_rom_dout;
+wire [31:0] theme_rom_dout;
+
+wire m68k_rom_req;
+wire [17:0] m68k_rom_addr;
+wire [15:0] m68k_rom_dout;
 
 sdram_mux SDRAM_MUX(
 	.clk_sys(clk_sys),
 	.reset(reset),
 
-	.spr_rom_req(ce_pix2),
-	.spr_rom_addr(spr_rom_addr),
+	.spr_rom_req(spr_rom_req),
+	.spr_rom_addr,
 	.spr_rom_data(spr_rom_dout),
 
-	.tiles_rom_req(ce_pix),				// TODO
-	.tiles_rom_addr(tiles_rom_addr),
+	.tiles_rom_req(tiles_rom_req),
+	.tiles_rom_addr,
 	.tiles_rom_data(tiles_rom_dout),
 	
-	/*.theme_rom_req(1'b0),
-	.theme_rom_addr(theme_rom_addr),
-	.theme_rom_data(theme_rom_dout),*/
+	.theme_rom_req(theme_rom_req),
+	.theme_rom_addr,
+	.theme_rom_data(theme_rom_dout),
+	
+	.m68k_rom_req(m68k_rom_req),
+	.m68k_rom_addr,
+	.m68k_rom_data(m68k_rom_dout),
 
 	.DL_EN(ioctl_download),
 	.DL_ADDR({rom_addr, 1'b0}),	// All SDRAM data is 16bit
 	.DL_DATA(rom_data),
-	.DL_WR(rom_tiles_we | rom_sprites_we),	// ioctl_wr
+	.DL_WR(rom_tiles_we | rom_sprites_we | rom_theme_we | rom_68k_we),
 
 	.SDRAM_ADDR(sdram_addr),
 	.SDRAM_DOUT(sdram_dout),
@@ -556,7 +630,9 @@ sdram_mux SDRAM_MUX(
 	.SDRAM_RD,
 	.SDRAM_BURST,
 	.SDRAM_BS,
-	.SDRAM_READY(sdram_ready)
+	.SDRAM_READY(sdram_ready),
+	
+	.sdram_dtack(sdram_dtack)
 );
 
 wire   sdr_pri_sel = 1;
@@ -600,7 +676,6 @@ sdram ram1(
 
 //////////////////////////////////////////////////////////////////
 
-wire HBlank;
 wire HSync;
 wire VSync;
 wire ce_pix;
@@ -612,42 +687,39 @@ tmnt mycore
 (
 	.reset(reset),
 	.clk_sys(clk_sys),	// 96MHz
+	.tno(tno),
 	
 	.CPU_RUN(CPU_RUN),
 	
-	//.scandouble(forced_scandoubler),
 	.ioctl_download,
-	//.rom_byteena,
-	.rom_addr,
 	
-	.rom_68k_we,
 	.rom_z80_we,
 	.rom_prom1_we,
 	.rom_prom2_we,
+	.rom_007232_we,
+	.rom_uPD7759C_we,
 	
+	.rom_addr,
 	.rom_data,
 
-	.ce_pix(ce_pix),
-	.ce_pix2(ce_pix2),
+	.ce_pix,
+	
+	.spr_rom_req,
+	.tiles_rom_req,
 
-	.NCBLK(NCBLK),
-	.NHBK(NHBK),
-	.NHSY(HSync),
-	.NVSY(VSync),
+	.NCBLK,
+	.NHBK,
+	.NHSY,
+	.NVSY,
 	
-	.P_right({joystick_3[0], joystick_2[0], joystick_1[0], joystick_0[0]}),
-	.P_left({joystick_3[1], joystick_2[1], joystick_1[1], joystick_0[1]}),
-	.P_down({joystick_3[2], joystick_2[2], joystick_1[2], joystick_0[2]}),
-	.P_up({joystick_3[3], joystick_2[3], joystick_1[3], joystick_0[3]}),
-
-	.P_attack1({joystick_3[4], joystick_2[4], joystick_1[4], joystick_0[4]}),
-	.P_attack2({joystick_3[5], joystick_2[5], joystick_1[5], joystick_0[5]}),
-	.P_attack3({joystick_3[6], joystick_2[6], joystick_1[6], joystick_0[6]}),
+	// Start, Attack 3, Attack 2, Attack 1, Down, Up, Right, Left
+	.inputs_P1(~{joystick_0[7:4], joystick_0[2], joystick_0[3], joystick_0[0], joystick_0[1]}),
+	.inputs_P2(~{joystick_1[7:4], joystick_1[2], joystick_1[3], joystick_1[0], joystick_1[1]}),
+	.inputs_P3(~{joystick_2[7:4], joystick_2[2], joystick_2[3], joystick_2[0], joystick_2[1]}),
+	.inputs_P4(~{joystick_3[7:4], joystick_3[2], joystick_3[3], joystick_3[0], joystick_3[1]}),
 	
-	.P_start({joystick_3[7], joystick_2[7], joystick_1[7], joystick_0[7]}),
-	.P_coin({joystick_3[8], joystick_2[8], joystick_1[8], joystick_0[8]}),
-	
-	.service({joystick_3[9], joystick_2[9], joystick_1[9], joystick_0[9]}),
+	.inputs_coin(~{joystick_3[8], joystick_2[8], joystick_1[8], joystick_0[8]}),
+	.inputs_service(~{joystick_3[9], joystick_2[9], joystick_1[9], joystick_0[9]}),
 	
 	// DEBUG
 	.dipswitch1(8'b11111100),	// DIPs: coinage settings
@@ -656,8 +728,8 @@ tmnt mycore
 	
 	/*.dipswitch1(dips[0]),
 	.dipswitch2(dips[1]),
-	.dipswitch3(dips[2]),
-	*/
+	.dipswitch3(dips[2]),*/
+	
 	.video_r,
 	.video_g,
 	.video_b,
@@ -668,27 +740,23 @@ tmnt mycore
 	.spr_rom_addr,
 	.spr_rom_dout,
 	
+	.theme_rom_req,
 	.theme_rom_addr,
-	.theme_rom_dout
+	.theme_rom_dout,
+	
+	.m68k_rom_req,
+	.m68k_rom_addr,
+	.m68k_rom_dout,
+	
+	.audio_mono,
+	
+	.sdram_dtack(sdram_dtack)
 );
 
 assign CLK_VIDEO = clk_sys;
 assign CE_PIXEL = ce_pix;
 
-/*assign VGA_DE = NCBLK;
-assign VGA_HS = ~HSync;
-assign VGA_VS = ~VSync;
-
-// Extend 6-bit color to 8-bit
-assign VGA_R  = {video_r, video_r[1:0]};
-assign VGA_G  = {video_g, video_g[1:0]};
-assign VGA_B  = {video_b, video_b[1:0]};*/
-
-// "Breathing" PWM
-reg  [26:0] act_cnt;
-always @(posedge clk_sys)
-	act_cnt <= act_cnt + 1'd1;
-assign LED_USER = act_cnt[26] ? act_cnt[25:18]  > act_cnt[7:0]  : act_cnt[25:18]  <= act_cnt[7:0];
+assign LED_USER = 1'b0;
 
 video_cleaner VC(
 	.clk_vid(clk_sys),
@@ -698,28 +766,18 @@ video_cleaner VC(
 	.G({video_g, video_g[1:0]}),
 	.B({video_b, video_b[1:0]}),
 
-	.HSync(~HSync),
-	.VSync(~VSync),
+	.HSync(~NHSY),
+	.VSync(~NVSY),
 	.HBlank(~NHBK),
 	.VBlank(~NCBLK),
 
-	//optional de
-	//input            DE_in,
-
 	// video output signals
-	.VGA_R(VGA_R),
-	.VGA_G(VGA_G),
-	.VGA_B(VGA_B),
-	.VGA_VS(VGA_VS),
-	.VGA_HS(VGA_HS),
-	.VGA_DE(VGA_DE)
-	
-	// optional aligned blank
-	//output reg       HBlank_out,
-	//output reg       VBlank_out,
-	
-	// optional aligned de
-	//output reg       DE_out
+	.VGA_R,
+	.VGA_G,
+	.VGA_B,
+	.VGA_VS,
+	.VGA_HS,
+	.VGA_DE
 );
 
 endmodule
