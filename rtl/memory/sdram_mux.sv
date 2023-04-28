@@ -1,5 +1,5 @@
 //============================================================================
-//  TMNT for MiSTer
+//  Konami TMNT for MiSTer
 //
 //  Copyright (C) 2022 Sean 'Furrtek' Gonsalves
 //

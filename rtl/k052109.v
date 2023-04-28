@@ -1,8 +1,26 @@
-// TMNT arcade core
-// Sean Gonsalves 2022
-// k052109: Plane address generator
-// Generates GFX ROM address in sequence according to contents of VRAM
-// Handles X coarse scrolling only, fine X scrolling is done in the k051962
+//============================================================================
+//  Konami TMNT for MiSTer
+//
+//  Copyright (C) 2022 Sean 'Furrtek' Gonsalves
+//
+//  This program is free software; you can redistribute it and/or modify it
+//  under the terms of the GNU General Public License as published by the Free
+//  Software Foundation; either version 2 of the License, or (at your option)
+//  any later version.
+//
+//  This program is distributed in the hope that it will be useful, but WITHOUT
+//  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+//  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+//  more details.
+//
+//  You should have received a copy of the GNU General Public License along
+//  with this program; if not, write to the Free Software Foundation, Inc.,
+//  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+//============================================================================
+
+// k051962 Scroll layers address generator
+// Generates graphics ROM addresses in sequence according to the contents of VRAM
+// Handles Y flipping, X coarse scrolling only, fine X scrolling is done in the k051962
 
 module k052109 (
 	input nRES,

@@ -1,3 +1,6 @@
+// OKI counter cell
+// furrtek 2022
+
 module CNT2(
 	input CLK,
 	input nLOAD, CEN1, CEN2,

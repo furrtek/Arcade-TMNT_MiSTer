@@ -138,18 +138,6 @@ always @(posedge clk) begin
 		data_ready_delay <= 0;	// Abort before 2nd read
 	end else
 		data_ready_delay <= data_ready_delay>>1;
-	
-
-	/*
-	// Data available on next edge
-	if(data_ready_delay[2]) ready <= 1;
-	
-	// Shortcut data_ready_delay 10 -> 00 if no burst - Maybe not needed ?
-	if(data_ready_delay[2] & ~saved_burst)
-		data_ready_delay <= 0;
-	else
-		data_ready_delay <= data_ready_delay>>1;*/
-		
 		
 	SDRAM_DQ <= 16'bZ;
 

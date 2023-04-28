@@ -1,12 +1,29 @@
-// TMNT arcade core
-// Simulation blind schematic copy version
-// Sean Gonsalves 2022
-`timescale 1ns/1ns
+//============================================================================
+//  Konami TMNT for MiSTer
+//
+//  Copyright (C) 2022 Sean 'Furrtek' Gonsalves
+//
+//  This program is free software; you can redistribute it and/or modify it
+//  under the terms of the GNU General Public License as published by the Free
+//  Software Foundation; either version 2 of the License, or (at your option)
+//  any later version.
+//
+//  This program is distributed in the hope that it will be useful, but WITHOUT
+//  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+//  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+//  more details.
+//
+//  You should have received a copy of the GNU General Public License along
+//  with this program; if not, write to the Free Software Foundation, Inc.,
+//  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+//============================================================================
 
-// Read tests/notes.txt !
-// TODO: Why is there an OA_in (external sprite RAM address bus) ? Get rid of it if it's for a test mode.
+// k051960 Sprite address generator
+// Generates graphics ROM address in sequence according to the contents of VRAM in order to render sprites
+// line by line. Handles raster matching, scaling, Y flipping, and coarse X flipping.
 
-// Internal RAM blocks are named according to their disposition on the die, they do NOT match which attribute byte they stored
+// Internal RAM blocks are named according to their disposition on the die, they do NOT match which attribute byte
+// they store !
 // ATTR0 (sprite active flag and priority) only read from external RAM for loading, not stored
 // RAM_F: ATTR1	Sprite size, tile code MSBs
 // RAM_E: ATTR2	Tile code LSBs

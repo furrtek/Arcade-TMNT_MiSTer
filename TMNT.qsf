@@ -121,7 +121,6 @@ set_global_assignment -name VERILOG_FILE rtl/TMNT.v
 set_global_assignment -name SYSTEMVERILOG_FILE TMNT.sv
 set_global_assignment -name CDF_FILE jtag.cdf
 set_global_assignment -name QIP_FILE sys/sys.qip
-set_global_assignment -name SDC_FILE mycore.sdc
 set_global_assignment -name VERILOG_FILE rtl/color.v
 set_global_assignment -name QIP_FILE rtl/memory/rom_main.qip
 set_global_assignment -name QIP_FILE rtl/memory/rom_prio.qip
