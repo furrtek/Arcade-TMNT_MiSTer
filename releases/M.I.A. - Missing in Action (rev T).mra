@@ -34,22 +34,22 @@
 	<rom index="0" zip="mia.zip" md5="none">
 		<!-- 68k -->
 		<interleave output="16">
-			<part crc="6f0acb1d" name="808t20.h17"map="01"/>
-			<part crc="42a30416" name="808t21.j17"map="10"/>
+			<part crc="6f0acb1d" name="808t20.h17" map="01"/>
+			<part crc="42a30416" name="808t21.j17" map="10"/>
 		</interleave>
 		<!-- Z80 -->
 		<part crc="3d93a7cd" name="808e03.f4"/>
 		<!-- Tiles -->
 		<interleave output="32">
-			<part crc="d62f1fde" name="808e12.f28"map="0100"/>
-			<part crc="1fa708f4" name="808e13.h28"map="1000"/>
-			<part crc="73d758f6" name="808e22.i28"map="0001"/>
-			<part crc="8ff08b21" name="808e23.k28"map="0010"/>
+			<part crc="d62f1fde" name="808e12.f28" map="0100"/>
+			<part crc="1fa708f4" name="808e13.h28" map="1000"/>
+			<part crc="73d758f6" name="808e22.i28" map="0001"/>
+			<part crc="8ff08b21" name="808e23.k28" map="0010"/>
 		</interleave>
 		<!-- Sprites -->
 		<interleave output="32">
-			<part crc="d1299082" name="808d17.j4"map="2100"/>
-			<part crc="2b22a6b6" name="808d15.h4"map="0021"/>
+			<part crc="d1299082" name="808d17.j4" map="2100"/>
+			<part crc="2b22a6b6" name="808d15.h4" map="0021"/>
 		</interleave>
 		<!-- k007232 -->
 		<part crc="fd4d37c0" name="808d01.d4"/>
