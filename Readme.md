@@ -4,7 +4,7 @@ Konami's Teenage Mutant Ninja Turtles for the MiSTer FPGA platform.
 
 Before reporting a bug please check the **issues** tab, some are already known.
 
-All the video and the 007232 sound chip logic was extracted from custom chips by reverse-engineering their silicon.
+All the video and the 007232 sound chip logic was extracted from custom chips by [reverse-engineering their silicon](https://github.com/furrtek/VGChips/tree/master/Konami).
 
 Supports the `tmnt` and `mia` romsets.
 
