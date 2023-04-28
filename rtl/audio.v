@@ -3,8 +3,9 @@ module TMNTAudio(
 	input clk_sys,
 	input ce_snd_p, ce_snd_n,
 	input ce_snd_half,
+	input is_tmnt,
 	
-	input ioctl_download,
+	input load_en,
 	input [25:0] rom_addr,
 	input [15:0] rom_data,
 	input rom_z80_we,
@@ -22,6 +23,7 @@ module TMNTAudio(
 	output signed [15:0] mixdown
 );
 
+wire signed [15:0] mixdown_tmnt, mixdown_mia;
 wire nWR, nRD, nWAIT, nMREQ, nIORQ, nRFSH;
 wire [15:0] z80_addr;
 reg [7:0] z80_din;
@@ -34,12 +36,13 @@ reg nINT;
 reg SNDON_prev;
 reg SNDDT_prev;
 
-reg [3:0] level_A;
-reg [3:0] level_B;
+reg signed [4:0] level_A;
+reg signed [4:0] level_B;
 reg [7:0] U82;
 
 reg theme_en;
 reg [15:0] clk_640k_div;
+reg [15:0] clk_640k_div2;
 reg uPD7759C_ce;
 reg [18:0] theme_addr;
 reg theme_inc_flag;
@@ -62,7 +65,7 @@ wire signed [15:0] k007232_mono;
 
 byte_loader LOAD_Z80(
 	.clk(clk_sys),
-	.en(ioctl_download),
+	.en(load_en),
 	.wein(rom_z80_we),
 	.weout(rom_z80_we_byte),
 	.lsb(rom_z80_lsb)
@@ -70,7 +73,7 @@ byte_loader LOAD_Z80(
 
 byte_loader LOAD_007232(
 	.clk(clk_sys),
-	.en(ioctl_download),
+	.en(load_en),
 	.wein(rom_007232_we),
 	.weout(rom_007232_we_byte),
 	.lsb(rom_007232_lsb)
@@ -78,7 +81,7 @@ byte_loader LOAD_007232(
 
 byte_loader LOAD_uPD7759C(
 	.clk(clk_sys),
-	.en(ioctl_download),
+	.en(load_en),
 	.wein(rom_uPD7759C_we),
 	.weout(rom_uPD7759C_we_byte),
 	.lsb(rom_uPD7759C_lsb)
@@ -87,7 +90,7 @@ byte_loader LOAD_uPD7759C(
 // 32k * 8
 rom_z80 ROM_Z80(
 	.clock(clk_sys),
-	.address(ioctl_download ? {rom_addr[14:1], rom_z80_lsb} : z80_addr[14:0]),
+	.address(load_en ? {rom_addr[14:1], rom_z80_lsb} : z80_addr[14:0]),
 	.q(z80_rom_dout),
 	.wren(rom_z80_we_byte),
 	.data(rom_z80_lsb ? rom_data[15:8] : rom_data[7:0])
@@ -140,8 +143,8 @@ always @(*) begin
 		5'b10zzz: z80_din <= snd_code;
 		5'b110zz: z80_din <= z80_ram_dout;
 		5'b1110z: z80_din <= ym2151_dout;
-		5'b11110: z80_din <= {7'd0, uPD7759C_busy};
-		default: z80_din <= 8'h00;
+		5'b11110: z80_din <= is_tmnt ? {7'd0, uPD7759C_busy} : 8'hFF;
+		default: z80_din <= 8'hFF;
 	endcase
 end
 
@@ -218,31 +221,35 @@ wire [15:0] theme_rom_mux = theme_rom_addr[0] ? theme_rom_dout[15:0] : theme_rom
 
 assign theme_rom_addr = theme_addr[17:0];
 
+reg prev_9000_wr;
 always @(posedge clk_sys or posedge reset) begin
 	if (reset) begin
 		clk_640k_div <= 16'd0;
+		clk_640k_div2 <= 16'd0;
 		theme_en <= 0;
 		theme_addr <= 19'd1;	// Force request on 1st sample
 		theme_rom_req <= 1'b0;
 		theme_inc_flag <= 1'b0;
 		uPD7759C_ce <= 1'b0;
-	end else begin
+	end else if (is_tmnt) begin
 
-		if (!U82[1])
+		if (~prev_9000_wr & U82[1])
 			theme_en <= z80_dout[2];
+		prev_9000_wr <= U82[1];
+		
+		if (clk_640k_div2 == 16'd150-1) begin
+			clk_640k_div2 <= 16'd0;
+			uPD7759C_ce <= 1'b1;
+		end else begin
+			clk_640k_div2 <= clk_640k_div2 + 1'b1;	// 96M/150=640k
+			uPD7759C_ce <= 1'b0;
+		end
 		
 		if (!theme_en) begin
 			theme_addr <= 19'd0;
 			clk_640k_div <= 16'd0;
 		end else begin
-			if (clk_640k_div == 16'd4800-1)
-				uPD7759C_ce <= 1'b1;
-			else
-				uPD7759C_ce <= 1'b0;
-			
 			if ((clk_640k_div == 16'd4800-1) & !theme_addr[18]) begin
-				uPD7759C_ce <= 1'b1;
-				
 				clk_640k_div <= 16'd0;
 				theme_rom_sample <= theme_rom_mux;
 				theme_inc_flag <= 1'b1;
@@ -263,24 +270,19 @@ end
 // 128k * 8
 rom_uPD7759C ROM_uPD7759C(
 	.clock(clk_sys),
-	.address(ioctl_download ? {rom_addr[16:1], rom_uPD7759C_lsb} : rom_uPD7759C_addr),
+	.clken(is_tmnt),
+	.address(load_en ? {rom_addr[16:1], rom_uPD7759C_lsb} : rom_uPD7759C_addr),
 	.q(rom_uPD7759C_dout),
 	.wren(rom_uPD7759C_we_byte),
 	.data(rom_uPD7759C_lsb ? rom_data[15:8] : rom_data[7:0])
 );
 
-/*reg uPD7759_ok;
-always @(posedge clk_sys) begin
-	uPD7759_ok <= uPD7759_drq;
-end*/
-assign uPD7759_ok = 1'b1;
-
 jt7759 uPD7759C(
-    .rst(uPD7759C_res),		// TODO: Polarity ?
-    .clk(clk_sys),  			// Use same clock as sound CPU
+    .rst(~uPD7759C_res & is_tmnt),
+    .clk(clk_sys),
     .cen(uPD7759C_ce),  	// 640kHz
     .stn(~uPD7759C_start),	// Start (active low)
-    .cs(1'b0),
+    .cs(1'b1),
     .mdn(1'b1),  				// Standalone mode
     .busyn(uPD7759C_busy),
     .wrn(1'b1),  				// For slave mode only
@@ -288,7 +290,7 @@ jt7759 uPD7759C(
     .rom_cs(uPD7759_drq),
     .rom_addr(rom_uPD7759C_addr),
     .rom_data(rom_uPD7759C_dout),
-    .rom_ok(uPD7759_ok),
+    .rom_ok(1'b1),
     .sound(uPD7759C_mono)
 );
 	
@@ -310,7 +312,7 @@ jt51 YM2151(
 // 128k * 8
 rom_k007232 ROM_K007232(
 	.clock(clk_sys),
-	.address(ioctl_download ? {rom_addr[16:1], rom_007232_lsb} : rom_007232_addr),
+	.address(load_en ? {rom_addr[16:1], rom_007232_lsb} : rom_007232_addr),
 	.q(rom_007232_dout),
 	.wren(rom_007232_we_byte),
 	.data(rom_007232_lsb ? rom_data[15:8] : rom_data[7:0])
@@ -328,7 +330,7 @@ k007232 K007232(
 	
 	.AB({z80_addr[3:1], ~z80_addr[0]}),
 	.DB(z80_dout),
-	.RAM(rom_007232_dout),
+	.RAM_IN(rom_007232_dout),
 	.SA(rom_007232_addr),
 	.ASD(k007232_A),
 	.BSD(k007232_B),
@@ -336,19 +338,16 @@ k007232 K007232(
 );
 
 always @(posedge SLEV) begin
-	level_A <= z80_dout[7:4];
-	level_B <= z80_dout[3:0];
+	level_A <= {1'b0, z80_dout[7:4]};
+	level_B <= {1'b0, z80_dout[3:0]};
 end
 
-wire signed [6:0] k007232_A_signed = k007232_A - 7'd64;
-wire signed [6:0] k007232_B_signed = k007232_B - 7'd64;
+wire signed [15:0] k007232_A_signed = {9'd0, k007232_A} - 16'd64;
+wire signed [15:0] k007232_B_signed = {9'd0, k007232_B} - 16'd64;
 
-// TODO: Four chained adders better than using a real multiplier ?
-wire signed [10:0] k007232_A_final = level_A * k007232_A_signed;
-wire signed [10:0] k007232_B_final = level_B * k007232_B_signed;
+assign k007232_mono = {k007232_A_signed * level_A + k007232_B_signed * level_B, 4'd0};
 
 // Mix channels and convert to signed
-assign k007232_mono = {k007232_A_final, 4'd0} + {k007232_B_final, 4'd0};
 
 // Mixing:
 // YM2151	Stereo	16s
@@ -386,6 +385,8 @@ always @(*) begin
 end
 
 // TODO: Adjust mixing levels
-assign mixdown = (theme_mono >>> 2) + (uPD7759C_mono >>> 2) + (ym_left >>> 2) + (ym_right >>> 2) + (k007232_mono >>> 2);
+assign mixdown_tmnt = (theme_mono >>> 2) + (uPD7759C_mono <<< 4) + (ym_left >>> 2) + (ym_right >>> 2) + (k007232_mono >>> 3);
+assign mixdown_mia = (ym_left >>> 2) + (ym_right >>> 2) + (k007232_mono >>> 2);
+assign mixdown = is_tmnt ? mixdown_tmnt : mixdown_mia;
 
 endmodule

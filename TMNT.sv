@@ -208,14 +208,92 @@
 // effect, so it must be a timing issue in k052109 causing incorrect rom addresses to be output.
 // Cleaned up k052109 and the issue seems to be gone ?
 
-// Connected JT7759.
-// No k007232 audio.
 // ROMs weren't loaded properly when the core was started from the menu. Was caused by incorrect map attribute in MRA
 // which was interpreted differently by the mra.exe tool and produced correct TMNT.rom by chance. Fixed MRA.
 // After adding the MIA loader, TMNT roms didn't load properly anymore. Caused by "tno" not being sent when loading
 // the bitstream via USB Blaster. Works ok when loaded the normal way via the MiSTer menu.
-// TODO: MIA stuff, see AND gates on 051962 page, disable unused sound chips.
 
+// No k007232 audio. The k007232 plays percussions and the coin-in "Cowabunga !"
+// On coin-in, registers C and D are set to zero 4 times, then:
+// E0->2	Start address = 019BE0 ("Cowabunga !")
+// 9B->3
+// 01->4
+// F0->C	Volume channel A set max (SLEV)
+// D3->0 Address step 0FD3
+// 0F->1
+// Rd 5	Start playing channel A
+// And the same for channel B, playing the same sample over both channels at max volume BECAUSE IT NEEDS TO BE LOUD !
+// DACS and SLEV are asserted when they should ok. CH1_RESET falls after the register 5 read.
+// CH1 prescaler is set to FD3 ok, but never counts up. CLK is NE ok, CEN1 is D69 ok, CEN2 is /CH1_RESET_PRE ok.
+// Prescaler not counting because CLK and CEN1 are in phase, so there's no rising edge of CLK with CEN1 high.
+// Confusion regarding Jotego's PR for the incorrect pitch, CLKd4 -is- D69, not F74.
+// k007232 now outputs audio but very clipped. Isolating k007232 to check if it's because of a mixing problem.
+// Was caused by wrong sign extension.
+
+// The very first coin-in doesn't play "cowabunga", instead it plays the first sample from address 0. The address
+// counter isn't loaded with the register contents (those are correct). Caused by incorrect implementation of the
+// combinational loop used to generate CH1_RESET. Testing H71 before T72 solved the problem but causes channel to
+// never stop once started. Re-wrote the latch implementation fixed the triggering.
+
+// No uPD7759 audio. It plays all other voice samples heard when text bubbles are shown, such as "Fire !" and
+// "Hang on April !" during the first stage intro.
+// Clock enable was way too slow. Copy/paste mistake that made it 640kHz/16 instead of 640kHz.
+
+// The theme is stopped short during the first stage intro.
+// 06 -> A000	Theme starts, theme_en rises ok
+// 04 -> A000	"Hang on April !", theme_en falls :(
+// Z80 code uses a "res 1,(hl)" with hl=9000 to reset the uPD7759, the res instruction performs a read from 9000
+// which isn't mapped and should return open bus. Current implementation returns 0, which causes theme_en to be
+// asserted for a short period (the read is done while Z80_DOUT is 8E, so theme_en is set, then the write done
+// with Z80_DOUT = 0 resets theme_en), this glitch may happen on the real hw but it shouldn't be noticeable.
+// Z80 code uses a "set 2,(hl)" with hl=9000. This sets theme_en, but it is then reset by the next "res 1,(hl)"
+// used to play "Hang on April !" because of the open bus read issue described above.
+// Setting the open bus return value to FF instead of 0 solved the problem.
+
+// Changing DIP switches in menu crashed everything. Was caused by the lack of ioctl_index check for sdram_mux DL_EN.
+
+// MIA attract mode runs, sfx and sprites ok but planes garbled, invalid tiles. Can coin-in but can't start a game.
+// Invalid tiles were caused by wrong MRA. Correct tiles now shown but x flipped. Disabling k051962 COL[0] input to
+// see if it's an attribute or a loading problem. Turns out the pixels are swapped in pairs for an unknown reason.
+// Using the same routing as TMNT (as it should be) causes bad graphics, and there shouldn't be any place (MRA included)
+// where nibbles could be swapped.
+// Using a modified routing solves the problem but isn't the right solution.
+// The test mode shows flipped text tiles when they shouldn't and incorrect colors, revealing that there has to be
+// a tile attribute problem.
+// During the test mode "COLOUR CHECK" screen, only the fix layer is used. White gradient is palette 0, red is 4,
+// green is 8, blue is C.
+// In VRAM, white tiles attributes are 0, red are 88, green are 10, blue are 98.
+// COL out	COL in	DFI[7:4]	CD[7:0]
+// 00			00			0	0000	00_00xxxx	Palette 0 ok
+// 88			80			8	1000	01_00xxxx	Palette 4 ok
+//	10			10			1	0001	10_00xxxx	Palette 8 ok
+//	98			90			9	1001	11_00xxxx	Palette C ok
+// Displayed white and red ok, but green is white (0 instead of 8), and blue is red (4 instead of C). This means
+// that palette number bit 3 (CD[7]) is forced to 0.
+// Fixed an error in the plane mixing logic and reverted routing kludge. Test mode now displays correctly but
+// game tiles are all flipped as before.
+// Writes to reg 1E80 to enable/disable tile X flip on COL[0] set are mapped to 106D00. POST screen sets bit 1,
+// selt-test screen resets bit 1, game sets bit 1.
+// 1E80 bit 1 is set and reset properly, so COL[0] must be high when it shouldn't. Forcing low to gather more info.
+// TMNT keeps 1E80 bit 1 reset at all times (expected since COL[0] is tied to ground).
+// M61 is permanently high (meaning COL[0] always set for fix layer, when it shouldn't). Problem with REG1C00 D6 ?
+// COL_MUX_A[0] or COL_MUX[2] ?
+// Even when forcing COL[2] output (which is wired to COL[0] of k051962) of k052109 low, M61_nQ becomes high.
+// Forcing M61_nQ low fixes most of MIA. Somehow M61_nQ is set even when COL[0] always stays low.
+// Simplifying the invertions for M61 solved the issue.
+
+// MIA has a different mapping than TMNT for the start and service buttons, they are read from the COIN input group.
+// The schematics have a missing page but MAME saved the day.
+
+// DSW1 and DSW2 read values are wrong as seen in test mode. Fixed wrong declaration of dips array but still wrong.
+
+// Problems:
+// Missing shadows (see TMNT sewer stage 3).
+// Leonardo's character portrait sprite isn't displayed properly. It's seen in the character select screen and
+// scrolling with an all-blue palette during the high-score screen. Same problem in MIA, some big sprites have
+// missing parts.
+// SDRAM read clashes causing occasional glitches when the tmnt theme is playing.
+// Wrong audio mixing levels.
 
 // Required clocks:
 // 640kHz for the TMNT theme playback
@@ -252,6 +330,13 @@
 // Sprites	1MB	32bit	SDRAM 0x1200000	J4 H4
 // k007232	128kB 8bit	BRAM					D4
 // Prio		256B	4bit	BRAM					F16
+
+// TODO - Punk Shot ROMs:
+// 68k		256kB	16bit	SDRAM	0x0000000	I7 I10
+// Z80		32kB	8bit	BRAM					E8
+// Tiles		512kB	32bit	SDRAM 0x1000000	E23 E22
+// Sprites	2MB	32bit	SDRAM 0x1200000	K2 K7
+// k053260	512kB 8bit	SDRAM 0x0100000	D3
 
 // RAMs:
 // 68k		16kB	16bit	BRAM				J13 K13
@@ -459,7 +544,7 @@ localparam CONF_STR = {
 	"TMNT;;",
 	"-;",
 	"DIP;",
-	"O9,CPU,RUN,STOP;",
+	//"O9,CPU,RUN,STOP;",	// DEBUG
 	"T0,Reset;",
 	"J1,A,B,C,Start,Coin,Service;",
 	"R0,Reset and close OSD;",
@@ -467,7 +552,7 @@ localparam CONF_STR = {
 	"V,v",`BUILD_DATE 
 };
 
-assign CPU_RUN = ~status[9];	// DEBUG
+assign CPU_RUN = 1'b1;	//~status[9];	// DEBUG
 
 wire forced_scandoubler;
 wire [1:0] buttons;
@@ -515,7 +600,10 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 );
 
 // DIP states defined by the MRA file are sent ioctl_index 254, not via status
-reg [7:0] dips[3];
+reg [7:0] dips[0:2];
+initial dips[0] = 8'b11111100;
+initial dips[1] = 8'b11111100;
+initial dips[2] = 4'b1111;
 always @(posedge clk_sys) begin
 	if (ioctl_wr && (ioctl_index == 254) && !ioctl_addr[26:2])
 		dips[ioctl_addr[1:0]] <= ioctl_dout[7:0];
@@ -525,10 +613,11 @@ end
 // 1 = TMNT
 // 2 = MIA
 reg [3:0] tno;
+initial tno = 4'd1;
 always @(posedge clk_sys) begin
-	tno <= 4'd1;	// TMNT DEBUG
-   //if (ioctl_wr & (ioctl_index == 1))
-	//	tno <= ioctl_dout[3:0];
+	//tno <= 4'd1;	// TMNT DEBUG
+   if (ioctl_wr & (ioctl_index == 1))
+		tno <= ioctl_dout[3:0];
 end
 
 wire rom_68k_we, rom_z80_we, rom_prom1_we, rom_prom2_we, rom_theme_we, rom_007232_we, rom_uPD7759C_we;
@@ -540,7 +629,7 @@ wire [1:0] rom_byteena;
 rom_loader LOADER(
 	.reset,
 	.clk_sys,
-	.load_en(ioctl_index == 16'd0),
+	.load_en((ioctl_index == 16'd0) & ioctl_download),
 	.ioctl_addr(ioctl_addr[25:0]),
 	.ioctl_dout,
 	.ioctl_wr,
@@ -618,7 +707,7 @@ sdram_mux SDRAM_MUX(
 	.m68k_rom_addr,
 	.m68k_rom_data(m68k_rom_dout),
 
-	.DL_EN(ioctl_download),
+	.DL_EN((ioctl_index == 16'd0) & ioctl_download),
 	.DL_ADDR({rom_addr, 1'b0}),	// All SDRAM data is 16bit
 	.DL_DATA(rom_data),
 	.DL_WR(rom_tiles_we | rom_sprites_we | rom_theme_we | rom_68k_we),
@@ -691,7 +780,7 @@ tmnt mycore
 	
 	.CPU_RUN(CPU_RUN),
 	
-	.ioctl_download,
+	.load_en((ioctl_index == 16'd0) & ioctl_download),
 	
 	.rom_z80_we,
 	.rom_prom1_we,
@@ -722,13 +811,13 @@ tmnt mycore
 	.inputs_service(~{joystick_3[9], joystick_2[9], joystick_1[9], joystick_0[9]}),
 	
 	// DEBUG
-	.dipswitch1(8'b11111100),	// DIPs: coinage settings
+	/*.dipswitch1(8'b11111100),	// DIPs: coinage settings
 	.dipswitch2(8'b01111100),	// DIPs: attract mode sound on, easy, 5 lives
-	.dipswitch3(4'b1111),		// DIPs: normal display, game mode
+	.dipswitch3(4'b1111),*/		// DIPs: normal display, game mode
 	
-	/*.dipswitch1(dips[0]),
+	.dipswitch1(dips[0]),
 	.dipswitch2(dips[1]),
-	.dipswitch3(dips[2]),*/
+	.dipswitch3(dips[2]),
 	
 	.video_r,
 	.video_g,

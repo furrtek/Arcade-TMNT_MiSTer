@@ -10,7 +10,7 @@ module tmnt
 	
 	input CPU_RUN,				// DEBUG
 	
-	input ioctl_download,	// ROM loading from HPS
+	input load_en,				// ROM loading from HPS
 	input rom_z80_we,
 	input rom_prom1_we,
 	input rom_prom2_we,
@@ -116,16 +116,6 @@ assign ce_pix = ce_pix_sr[0];		// 96/16 = 6 MHz
 assign tiles_rom_req = rom_req_sr[2];	// 1 too early, 96/32 = 3 MHz
 assign spr_rom_req = rom_req_sr[16];	// 12 OK, 16 OK 96/32 = 3 MHz, phase shifted
 
-// tiles_rom_req based on tiles_rom_addr change, doesn't do any good
-/*reg [17:0] tiles_rom_addr_prev;
-always @(posedge clk_sys) begin
-	if ((tiles_rom_addr != tiles_rom_addr_prev) & ~tiles_rom_req)
-		tiles_rom_req <= 1'b1;
-	else
-		tiles_rom_req <= 1'b0;
-	tiles_rom_addr_prev <= tiles_rom_addr;
-end*/
-
 wire [23:1] m68k_addr;
 reg [15:0] m68k_din;
 wire [15:0] m68k_dout;
@@ -163,7 +153,7 @@ assign prio_addr = {PRI2, PRI, VB[7], SHA, NFX, NOBJ, NVB, NVA};	// 2C6 = VB[7] 
 // MiSTer specific: load 8-bit ROM from 16-bit data
 byte_loader LOAD_PRIO(
 	.clk(clk_sys),
-	.en(ioctl_download),
+	.en(load_en),
 	.wein(rom_prom2_we),
 	.weout(rom_prio_we),
 	.lsb(rom_lsb)
@@ -172,7 +162,7 @@ byte_loader LOAD_PRIO(
 // 256 * 8 (really 256 * 4)
 rom_prio ROM_PRIO(
 	.clock(~clk_sys),
-	.address(ioctl_download ? {rom_addr[7:1], rom_lsb} : prio_addr),
+	.address(load_en ? {rom_addr[7:1], rom_lsb} : prio_addr),
 	.q(prio_dout),
 	.wren(rom_prio_we),
 	.data(rom_lsb ? rom_data[11:8] : rom_data[3:0])
@@ -242,7 +232,6 @@ cpu_68k CPU68K(
 	.nLDS(nLDS), .nUDS(nUDS_pre),
 	.nAS(nAS_pre),
 	.M68K_RW(m68k_rw),
-	.FC2(FC2), .FC1(FC1), .FC0(FC0),
 	.nBG(nBG),
 	.nBR(1'b1),
 	.nBGACK(1'b1)
@@ -277,7 +266,7 @@ assign nW2CS = U47[3];			// Work RAM
 assign COLCS = U47[4];			// Palette RAM
 assign SYSWR = U47[6];			// Set PRI*
 
-reg [7:0] U45 /* synthesis keep */;	// CPU LS138
+reg [7:0] U45;	// CPU LS138
 always @(*) begin
 	case({U47[5], m68k_addr[16], m68k_rw, m68k_addr[4:3]})
 		5'b0_0000: U45 <= 8'b11111110;
@@ -357,6 +346,8 @@ wire OEQ, PE;
 // SHOOT	A[2:1] == 1	M68K_DIN[7:0] <= inputs_P1;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
 // SHOOT	A[2:1] == 2	M68K_DIN[7:0] <= inputs_P2;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
 // SHOOT	A[2:1] == 3	M68K_DIN[7:0] <= inputs_P3;	Start, Shoot3, Shoot2, Shoot1, Down, Up, Right, Left
+// MIA player inputs don't have Starts, instead they're mapped to the Coin inputs:
+// Unused, Service1, Unused, Start2, Start1, Unused, Coin2, Coin1
 always @(*) begin
 	casez({OEQ, COLCS | ~m68k_rw, nW2CS | ~m68k_rw, nW1CS, nROMCS, DIP3, DIP, SHOOT, m68k_addr[2:1]})
 		10'b11_110z_zzzz: m68k_din <= m68k_rom_dout;
@@ -368,13 +359,14 @@ always @(*) begin
 
 		10'b11_1111_0100: m68k_din <= {8'h00, dipswitch1};
 		10'b11_1111_0101: m68k_din <= {8'h00, dipswitch2};
-		10'b11_1111_0110: m68k_din <= {8'h00, inputs_P4};	//is_tmnt ? {8'h00, inputs_P4} : 16'h00FF;
+		10'b11_1111_0110: m68k_din <= is_tmnt ? {8'h00, inputs_P4} : 16'h00FF;
 		10'b11_1111_0111: m68k_din <= 16'h00FF;
 
-		10'b11_1111_1000: m68k_din <= {8'h00, inputs_service, inputs_coin};
+		10'b11_1111_1000: m68k_din <= is_tmnt ? {8'h00, inputs_service, inputs_coin} :
+															{8'h00, 1'b1, inputs_service[0], 1'b1, inputs_P2[7], inputs_P1[7], 1'b1, inputs_coin[1:0]};
 		10'b11_1111_1001: m68k_din <= {8'h00, inputs_P1};
 		10'b11_1111_1010: m68k_din <= {8'h00, inputs_P2};
-		10'b11_1111_1011: m68k_din <= {8'h00, inputs_P3};	//is_tmnt ? {8'h00, inputs_P3} : 16'h00FF;
+		10'b11_1111_1011: m68k_din <= is_tmnt ? {8'h00, inputs_P3} : 16'h00FF;
 		
 		10'b0z_zzzz_zzzz: m68k_din <= {2{k007644_reg}};
 
@@ -444,6 +436,8 @@ planes PLANES(
 	.reset(reset),
 	.clk(clk_sys),
 	.clken(ce_main),
+	.is_tmnt(is_tmnt),
+	.P2H(P2H),
 	.V6M(V6M),
 	
 	.RMRD(RMRD),
@@ -485,9 +479,11 @@ sprites SPRITES(
 	.reset(reset),
 	.clk(clk_sys),
 	.clken(ce_main),
+	.is_tmnt(is_tmnt),
+	.P2H(P2H),
 	
 	.rom_prom1_we(rom_prom1_we),
-	.ioctl_download(ioctl_download),
+	.load_en(load_en),
 	.rom_data(rom_data),
 	.rom_addr(rom_addr),
 	
@@ -525,7 +521,7 @@ always @(*) begin
 		2'd0: CD <= {2'b10, 1'b0, VA[7:5], VA[3:0]};	// VA[4] unused
 		2'd1: CD <= {2'b10, 1'b1, VB[7:5], VB[3:0]};	// VB[4] unused
 		2'd2: CD <= {2'b01, OB[7:4], OB[0], OB[1], OB[2], OB[3]};	// Sprites
-		2'd3: CD <= {2'b00, 1'b0, FX[7:5], FX[3:0]};	// FX[4] unused
+		2'd3: CD <= {2'b00, is_tmnt ? {1'b0, FX[7:5]} : {FX[4], FX[7], 2'b00}, FX[3:0]};	// FX[4] unused in TMNT
 	endcase
 end
 
@@ -552,7 +548,8 @@ TMNTAudio audio(
 	.ce_snd_p(ce_snd_p),
 	.ce_snd_n(ce_snd_n),
 	.ce_snd_half(ce_snd_half),
-	.ioctl_download(ioctl_download),
+	.is_tmnt(is_tmnt),
+	.load_en(load_en),
 	.rom_addr(rom_addr),
 	.rom_data(rom_data),
 	.rom_z80_we(rom_z80_we),

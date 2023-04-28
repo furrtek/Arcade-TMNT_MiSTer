@@ -48,17 +48,15 @@ module TMNTColor(
 	assign CPU_DOUT = AB[1] ? RAM_DOUT_LOW : RAM_DOUT_HIGH;
 	
 	// TMNT only uses half of palette RAM ?
-	//ram_sim #(8, 11, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/palettes_L.txt") RAM_PAL_HIGH(CR, AB[1] | COLCS | NLWR, 1'b0, I[15:8], RAM_DOUT_HIGH);
-	//ram_sim #(8, 11, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/palettes_U.txt") RAM_PAL_LOW(CR, ~AB[1] | COLCS | NLWR, 1'b0, I[7:0], RAM_DOUT_LOW);
 	ram_pal RAM_PAL_U(
-		.clock(~clk_sys),	// clk_main
+		.clock(~clk_sys),
 		.address(CR),
 		.q(RAM_DOUT_HIGH),
 		.wren(~(AB[1] | COLCS | NLWR)),
 		.data(I[15:8])
 	);
 	ram_pal RAM_PAL_L(
-		.clock(~clk_sys),	// clk_main
+		.clock(~clk_sys),
 		.address(CR),
 		.q(RAM_DOUT_LOW),
 		.wren(~(~AB[1] | COLCS | NLWR)),

@@ -2,6 +2,8 @@ module planes(
 	input reset,
 	input clk,
 	input clken,	// Currently unused
+	input is_tmnt,
+	input P2H,		// For MIA
 	
 	output V6M,
 	
@@ -120,8 +122,6 @@ module planes(
 	);
 
 	// Tile VRAM
-	//ram_sim #(8, 13, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/vram_bg_L_8.txt") RAM_TILES_U(RA, RWE[1], RCS[1], VD_OUT[15:8], VD_IN[15:8]);		// 8k * 8
-	//ram_sim #(8, 13, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/tools/vram_bg_U_8.txt") RAM_TILES_L(RA, RWE[2], 1'b0, VD_OUT[7:0], VD_IN[7:0]);			// 8k * 8
 	ram_tiles RAM_TILES_U(
 		.clock(~clk_main),
 		.address(RA),
@@ -136,23 +136,27 @@ module planes(
 		.wren(~RWE[2]),
 		.data(VD_OUT[7:0])
 	);
-
-	assign tiles_rom_addr = {CAB, COL[3:2], COL[4], COL[1:0], VC};
-	// COL[3:2] in VRAM -> mapped to nibbles from regs 1D80 and 1F00 to {CAB, COL[3:2]} (2 to 4 bit indirection)
-	// 10 00 0 xx nnnnnnnn rrr
 	
-	// ../../sim/roms/
-	//rom_sim #(32, 18, "C:/Users/furrtek/Documents/Arcade-TMNT_MiSTer/sim/roms/rom_tiles_32.txt") ROM_TILES(tiles_rom_addr, tiles_rom_dout);	// 256k * 32
-	/*rom_tiles ROM_TILES(
-		.clock(clk_main),
-		.address(tiles_rom_addr),
-		.q(tiles_rom_dout),
-		.wren(0),		// TODO
-		.data(16'h0)	// TODO
-	);*/
+	// MIA uses a hardware hack to switch tile ROM addressing depending on the plane currently being fetched
+	// Relies on P2H from sprite section to time when this should be applied
+	// U95 should be active during FIX processing
+	// Signaltap: U95 high when N16[1:0] != 0. 
+	reg U94_Q;
+	assign U95 = P2H | U94_Q;
+	always @(negedge P2H or posedge reset) begin
+		if (reset)
+			U94_Q <= 1'b0;
+		else
+			U94_Q <= ~U94_Q;
+	end
+
+	assign tiles_rom_addr = is_tmnt ?
+										{CAB, COL[3:2], COL[4], COL[1:0], VC} :
+										{2'b00, U95 ? {CAB, COL[4:3]} : 4'b0000, COL[0], VC};
+	// COL[3:2] in VRAM -> mapped to nibbles from regs 1D80 and 1F00 to {CAB, COL[3:2]} (2 to 4 bit indirection)
 
 	// Chunky to planar (routing on PCB)
-	assign tiles_rom_planar = {
+	assign tiles_rom_planar = {	//is_tmnt ? {
 		tiles_rom_dout[31],	// V
 		tiles_rom_dout[27],	// R
 		tiles_rom_dout[23],	// N
@@ -214,7 +218,7 @@ module planes(
 		
 		.ZA1H(ZA1H), .ZA2H(ZA2H), .ZA4H(ZA4H),	// From k052109
 		.ZB1H(ZB1H), .ZB2H(ZB2H), .ZB4H(ZB4H),	// From k052109
-		.COL({COL[7:5], 5'b00000}),	// From k052109 (partially) - Only 3 bits used for tile palette selection
+		.COL(is_tmnt ? {COL[7:5], 5'b00000} : {COL[7:4], 3'b000, COL[2]}),	// From k052109 (partially) - Only 3 bits used for tile palette selection
 		
 		.VC(tiles_rom_planar),		// GFX ROM data
 		

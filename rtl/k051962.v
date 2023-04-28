@@ -133,16 +133,15 @@ end
 FDG S77(BEN, DB_IN[0], RES_SYNC, FLIP_SCREEN);
 FDG S86(BEN, DB_IN[1], RES_SYNC, TILE_FLIP_X_EN);
 
-// COL[0] delayed twice
-FDM J61(CLK_6M, V154 ? ~J61_nQ : COL[0], , J61_nQ);
-FDM K83(CLK_6M, L77 ? ~K83_nQ : J61_nQ, , K83_nQ);
-
 // COL[0] delayed once
-FDM M61(CLK_6M, X80 ? ~M61_nQ : COL[0], , M61_nQ);
+FDM M61(CLK_6M, X80 ? M61_Q : COL[0], M61_Q, );		// Select: M52 = X80
 
+wire FLIP_X_F/* synthesis keep */;
 assign FLIP_X_A = ~&{TILE_FLIP_X_EN, DSA[10]} ^ FLIP_SCREEN;
-assign FLIP_X_B = ~&{TILE_FLIP_X_EN, K83_nQ} ^ FLIP_SCREEN;
-assign FLIP_X_F = ~&{TILE_FLIP_X_EN, M61_nQ} ^ FLIP_SCREEN;
+assign FLIP_X_B = ~&{TILE_FLIP_X_EN, DSB[10]} ^ FLIP_SCREEN;
+assign FLIP_X_F = ~&{TILE_FLIP_X_EN, M61_Q} ^ FLIP_SCREEN;
+
+// All FLIP_X_* set: MIA mostly ok except a few, TMNT ok.
 
 assign T19 = ~&{ZA1H, ZA2H, ZA4H};
 wire [2:0] PX_SEL_A;

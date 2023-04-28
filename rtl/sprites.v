@@ -2,9 +2,11 @@ module sprites(
 	input reset,
 	input clk,
 	input clken,	// Currently unused
+	input is_tmnt,
+	output P2H,		// For MIA
 	
 	input rom_prom1_we,
-	input ioctl_download,
+	input load_en,
 	input [15:0] rom_data,
 	input [25:0] rom_addr,
 	
@@ -115,7 +117,11 @@ module sprites(
 		.data(OD_out)
 	);
 	
-	assign spr_rom_addr = {OC[4], CA[17:10], CA_DEC, CA[3]};
+	assign spr_rom_addr = is_tmnt ?
+									{OC[4], CA[17:10], CA_DEC, CA[3]} :
+									&{CA[17:14]} ?
+									{1'b0, CA[17:6], CA[4], CA[2], CA[1:0], CA[5], CA[3]} :
+									{1'b0, CA[17:8], CA[6], CA[4], CA[2], CA[1:0], CA[7], CA[5], CA[3]};
 	
 	// Chunky to planar (routing on PCB)
 	assign spr_rom_planar = {
@@ -161,45 +167,25 @@ module sprites(
 	};
 	
 	// MiSTer specific: load 8-bit ROM from 16-bit data
-	// TODO: Use byte_loader
-	/*reg rom_dec_we, rom_lsb;
-	always @(posedge clk) begin
-		if (ioctl_download) begin
-			if (rom_prom1_we) begin
-				rom_lsb <= 1'b0;
-				rom_dec_we <= 1'b1;
-			end
-			if (rom_dec_we & !rom_lsb) begin
-				rom_lsb <= 1'b1;
-			end
-			if (rom_dec_we & rom_lsb) begin
-				rom_lsb <= 1'b0;
-				rom_dec_we <= 1'b0;
-			end
-		end else begin
-			rom_lsb <= 1'b0;
-			rom_dec_we <= 1'b0;
-		end
-	end*/
-	
-	// MiSTer specific: load 8-bit ROM from 16-bit data
 	byte_loader LOAD_PRIO(
 		.clk(clk),
-		.en(ioctl_download),
+		.en(load_en),
 		.wein(rom_prom1_we),
 		.weout(rom_dec_we),
 		.lsb(rom_lsb)
 	);
 
-	// 256 * 4
+	// 256 * 4 for TMNT only
 	rom_dec ROM_DEC(
 		.clock(~clk),
-		.address(ioctl_download ? {rom_addr[7:1], rom_lsb} : {OC[4], CA[17:11]}),
+		.clken(is_tmnt),
+		.address(load_en ? {rom_addr[7:1], rom_lsb} : {OC[4], CA[17:11]}),
 		.q(PROM_dout),
 		.wren(rom_dec_we),
 		.data(rom_lsb ? rom_data[11:8] : rom_data[3:0])
 	);
 
+	// For TMNT only
 	always @(*) begin
 		case(PROM_dout[2:0])
 			3'd0: CA_DEC <= {CA[9], CA[8], CA[7], CA[6], CA[5], CA[4], CA[2], CA[1], CA[0]};
@@ -218,6 +204,7 @@ module sprites(
 		
 		.nRES(~reset),
 		.clk_24M(clk_main),
+		.P2H(P2H),
 		
 		.HVIN(HVOT),
 		

@@ -184,8 +184,7 @@ always @(*) begin
 		CPU_ROM_A <= AB[12:2];
 	end
 	
-	//if (!nCPU_ACCESS) begin
-	if (nCPU_ACCESS) begin		// TESTING
+	if (nCPU_ACCESS) begin
 		// Why is this needed ?
 		RENDER_ROM_A[2:0] <= TILE_FLIP_Y ? ~VC_MUX : VC_MUX;
 	end
@@ -458,7 +457,7 @@ always @(*) begin
 		2'd3: {CAB, COL_MUX_A} <= REG1F00[7:4];
 	endcase
 end
-	
+
 assign COL = RMRD ? RMRD_BANK : {COL_MUX[7:4], REG1C00[6] ? COL_MUX[3:2] : COL_MUX_A, COL_MUX[1:0]};
 
 endmodule

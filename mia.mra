@@ -18,7 +18,7 @@
 	<switches default="FF,FF,FF">	<!-- TODO: There are more coinage options -->
 		<dip bits="0,1,2,3" name="Coinage" ids="1c/1cr,1c/2cr,1c/3cr" values="15,14,13"/>
 		<dip bits="8,9" 	name="Lives" ids="2,3,5,7" values="3,2,1,0"/>
-		<dip bits="10,11" 	name="Bonus" ids="At 30k then every 80k,At 50k then every 100k,At 50k only,At 100k only" values="3,2,1,0"/>
+		<dip bits="10,11" 	name="Bonus" ids="30k then every 80k,50k then every 100k,At 50k only,At 100k only" values="3,2,1,0"/>
 		<dip bits="13,14"	name="Difficulty" ids="Easy,Normal,Difficult,Very difficult" values="3,2,1,0"/>
 		<dip bits="15" 		name="Demo sound" ids="On,Off" values="0,1"/>
 		<dip bits="16" 		name="Flip screen" ids="On,Off" values="0,1"/>
@@ -41,17 +41,15 @@
 		<part crc="3d93a7cd" name="808e03.f4"/>
 		<!-- Tiles -->
 		<interleave output="32">
-			<part crc="d62f1fde" name="808e12.f28"map="0011"/>
-			<part crc="1fa708f4" name="808e13.h28"map="1100"/>
-		</interleave>
-		<interleave output="32">
-			<part crc="73d758f6" name="808e22.i28"map="0011"/>
-			<part crc="8ff08b21" name="808e23.k28"map="1100"/>
+			<part crc="d62f1fde" name="808e12.f28"map="0100"/>
+			<part crc="1fa708f4" name="808e13.h28"map="1000"/>
+			<part crc="73d758f6" name="808e22.i28"map="0001"/>
+			<part crc="8ff08b21" name="808e23.k28"map="0010"/>
 		</interleave>
 		<!-- Sprites -->
 		<interleave output="32">
-			<part crc="d1299082" name="808d17.j4"map="0011"/>
-			<part crc="2b22a6b6" name="808d15.h4"map="1100"/>
+			<part crc="d1299082" name="808d17.j4"map="2100"/>
+			<part crc="2b22a6b6" name="808d15.h4"map="0021"/>
 		</interleave>
 		<!-- k007232 -->
 		<part crc="fd4d37c0" name="808d01.d4"/>

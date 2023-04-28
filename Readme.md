@@ -1,50 +1,15 @@
-# Template core for MiSTer
+# TMNT
 
-Uses JT51 and JT7759.
+Konami's Teenage Mutant Ninja Turtles for the MiSTer FPGA platform.
 
-## General description
-This core contains the latest version of framework and will be updated when framework is updated. There will be no releases. This core is only for developers. Besides the framework, core demonstrates the basic usage. New or ported cores should use it as a template.
+Before reporting a bug please check the '''issues''' tab, some are already known.
 
-It's highly recommended to follow the notes to keep it standardized for easier maintenance and collaboration with other developers.
+All the video and the 007232 sound chip logic was extracted from custom chips by reverse-engineering their silicon.
 
-## Source structure
+Supports the `tmnt` and `mia` romsets.
 
-### Legend:
-* `<core_name>` - you have to use the same name where you see this in this manual. Basically it's your core name.
+# Thanks
 
-### Standard MiSTer core should have following folders:
-* `sys` - the framework. Basically it's prohibited to change any files in this folder. Framework updates may erase any customization in this folder. All MiSTer cores have to include sys folder as is from this core.
-* `rtl` - the actual source of core. It's up to the developer how to organize the inner structure of this folder. Exception is pll folder/files (see below).
-* `releases` - the folder where rbf files should be placed. format of each rbf is: <core_name>_YYYYMMDD.rbf (YYYYMMDD is date code of release).
+@Jotego for his support and his great work on JT51 and JT7759.
 
-### Other standard files:
-* `<core_name>.qpf`- quartus project file. Copy it as is and then modify the line `PROJECT_REVISION = "<core_name>"` according to your core name.
-* `<core_name>.qsf` - quartus settings file. In most cases you don't need to modify anything inside (although you may wont to adjust some settings in quartus - this is fine, but keep changes minimal). You also need to watch this file before you make a commit. Quartus in some conditions may "spit" all settings from different files into this file so it will become large. If you see this, then simply revert it to original file.
-* `<core_name>.srf` - optional file to disable some warnings which are safe to disable and make message list more clean, so you will have less chance to miss some improtant warnings. You are free to modify it.
-* `<core_name>.sdc` - optional file for constraints in case if core require some special constraints. You are free to modify it.
-* `<core_name>.sv` - glue logic between framework and core. This is where you adapt core specific signals to framework.
-* `files.qip` - list of all core files. You need to edit it manually to add/remove files. Quartus will use this file but can't edit it. If you add files in Quartus IDE, then they will be added to `<core_name>.qsf` which is recommended manually move them to `files.qip`.
-* `clean.bat` - windows batch file to clean the whole project from temporary files. In most cases you don't need to modify it.
-* `.gitignore` - list of files should be ignored by git, so temprorary files wont be included in commits.
-* `jtag.cdf` - it will be produced when you compile the core. By clicking it in Quartus IDE, you will launch programmer where you can send the core to MiSTer over USB blaster cable (see manual for DE10-nano how to connect it). This file normally is not presend on cleaned project and not includede in commits.
-
-### PLL:
-Framework implies use of at least one PLL in the core. Framework doesn't comtain this PLL but requires it to be placed in `rtl` folder, so `pll` folder and `pll.v`, `pll.qip` files must be present, however PLL settings are up to the core.
-
-### Verilog Macros
-
-The following macros can be defined and will affect the framework features:
-
-Macro          |   Effect
----------------|---------------------------------
-ARCADE_SYS     | Disables the UART and OSD status
-DEBUG_NOHDMI   | Disable HDMI-related modules. Speeds up compilation but only analogue/direct video is available
-DUAL_SDRAM     | Changes configuration of FPGA pins to work with dual SDRAM I/O boards
-USE_DDRAM      | Enables DDRAM ports of emu instance
-USE_SDRAM      | Enables SDRAM ports of emu instance
-USE_FB         | Allows to use framebuffer from the core
-
-
-# Quartus version
-Cores must be developed in **Quartus v17.0.x**. It's recommended to have updates, so it will be **v17.0.2**. Newer versions won't give any benefits to FPGA used in MiSTer, however they will introduce incompatibilities in project settings and it will make harder to maintain the core and collaborate with others. **So please stick to good old 17.0.x version.** You may use either Lite or Standard license.
-
+All my patrons on Patreon for their encouraging messages and their financial support: 8bitworkshop, ack, Adam Davis, Adrian, Adrian Nabarro, AHMAD ALHAMLI, Alan Steremberg, albconde, Alex K, Alex Limi, Alex Painemilla Carreño, Alex Schuetz, Allen Tipper, Allister Fiend, amdrgn, Andrea Chiavazza, Andy Palmer, Andyways, Ange Albertini, Anonymous, Anthony Catalano, Anton Gale, Antonio Bellotta, ARCADEAGES, Arjan de Lang, Arkade_UK, Armando Doval-Lopez, Arnaud Jacquemin, arobotbitme ., Artemio Urbina, Arthur Carra, Aubrey Graves, AvramCE, Balthasar Schopman, BeardMonsterGames, Ben Phegan, Benjamin C. Wiley Sittler, Benjamin Leggett, Beretta Vexée, Bigly Sevensix, Billy, birdybro, Bit2018, Bitmap Bureau, blastar, Boogermann, Brad, Brandon Ptacnik, Brandon Thomas, brian burney, Brian Hamburg, brian Yu, Bryan Evans, cacophony, Cam Gregory, Carl Hagström, CastleMania Ryan, Chris Angelini, Chris Jardine, Chris Mawman, Chris Tar, Chris Thompson, Christian, Christian Meath, Christoph Helms, Christopher Feldman, Christopher Gelatt, Christopher Harvey, Christopher rumford, Christopher Tuckwell, Cody E, cognitivegears, Coin Retro, Colin Johnson, Cory Stargel, Count Duckula, Craig Bender, Craig Somerfield, Cristiano Moreira Carvalho, Curt Younkin, CyberpunkDre, Cyrille Jouineau, Dacide, Dan Doyle, Daniel Bauza, Daniel Hochman, Danielle (thegirlg33k), DarkStar7, Darren Wootton, Dashie, Dave Powell, Dave Wray, David Alegre, David Alvarado, David Dietrich, David Filskov, David Moylan, Dean Rymer, Dean Strey, DextersTechLab, Dillon Nichols, Douglas Alves, Dylan Lipsitz, Ed Mandy, ElectronAsh, Elio Berrios, emceebois, Emmanuel Vadot, Enrique Lopez, Eoin Gibney, Eric S, Erik O'Neill, Evan Clarke, F. Bennett Pearce, Jr., Fabio, Faye Salwin, Felix Michaux, Flygon, foo1138, Francois P, Frank Rosario, Frank Tenace, Fredrik Berglind, Fredrik Carlsson, GadgetUK164, Garrett Kapp, Gavin, giom, Grant King, Grant McNaught, gros75, grovdata, Guilherme Colombelli, Guillermo Izard, Guillermo Tunon, h1ghjuce, HardGay, Henry Colorado, Henry R, Hentai Joe, hicom150, ian Latta, Ichigo, Indo Jimbo, infebark, Infinite, Infinite NES Lives LLC, Isaac Totz, ItsACerealWow, ItsBobDudes, J Z, Jacek (Jack), Jake Lancaster, Jake Magee, Jan Kretschmer, Jan Paul, Jason, Jasper Soleymanzadeh, Jeffrey Haas, Jeffrey Skube, Jer!, Jeremy Hopkins, Jerrod Putman, Jerry Langwell, JFT, Jim Drewry, Jim Gregory, Jim Knowler, jklax, Jo, Joe Drilling, Joel Krueger, Johan Sjöstrand, John Fletcher, John Kelley, John Klimek, John Laird, John McMaster, John P, John Rademan, John Stringer, Johnny Davies, Jon, Jon Van Dalen, Jonas, Jonathon Rau, Joost Peters, Jootec from Mars, Jose BG, Joseph Milazzo, Josh, Josh Emery, Josh O'Roake, Josh Yates-Walker, Josiah Freep, JOTEGO, Juan Diego, Kaiosten, Kasil, Kawika Pacheco, Kebulator, Keith F. Kelly, Keith Gordon, Kevin Igoe, kigf, kl3mousse, Klaus Wolf, Kristopher, krivx, Kuromi Bunny, Lecloclo, Lee F, loloC2C, Lukas Schaper, Mack H, Magnus Kvevlander, magus424, Manksalot, Manuel, Manuel Antoni, Manuel Gomez Grande, Marco Tavian, Mark Dell, Mark DeRidder, Mark Mahoney, Martin Ansin, Martin Birkeldh, Martin Donlon, Martin Hernandez, Marvin Blauth, Matt Clawson, Matt Elder, Matt Gibson, Matt McCarthy, Matthew Caron, mattsoft, Maude Tarvox, Maxime Mouflard, mbalders, mic _, Michael Irvine, Michael Lessard, Michael Packard, Michael Stegen, Michael Thompson, Michael Tontimonia, Michael's Workshop, Michal, Mike Dean, Mike G, Mike Holzinger, Mike Puelinckx, Mike S, Mike Strobel, Mike V., Mingus, Mitchell Mebane, Monte Greene, mpong, MrX-8B, Muramasa, Murray Melvin, N, Negativeions, NegativeStraw, NeoHomeBrew, Nesfreak, Nick Bartle, Nick Gamewell, Nick K, Nihar Bhatt, Niko, Nikolay Ivanchev, Nils Lundquist, Noah Evans, Nolan, Noyman29, Nuno Sousa, octamin, ojwales, Olivier Cahagne, Osnyg, Owlnonymous, pagetable.com, Paolo Pisati, ParkNangJung, patreoner, Paul, Paul, Paul Alvarez II, Paul Harris, Peter Brown, Peter Kooiman, Peter McQuillan, Phil Stevenson, Philip Lawson, Philippe Depre, philpem, Pierrick Grillet, Pirloui, Pons Cremator, Porkchop Express, prince_rakeem, QcRetro, Quentin Sykes, R, Rasmus Bonnedal, RaspberryAlpine, Raul3D, RavenX-1, Ray Commend, RayceARoni, Raziel, Reed Kennedy, remowilliams, RetroRGB, RetroShop.pt, RGBsince92, Ricardo Engel, Richard S, Richard Simpson, RichFX, Rob Young, Robert Brodie, Robert Dickenson, Robert MacLean, robert rodgers, Roberto, Roberto Lari, Rodrigo Augusto de Moraes Lourenço, rok, Roland, Rom1, Roman Buser, Ronald Dean, Ruben Johnson, Rune P, Ryan Costello, Rysha, Sam Hall, Samuli Tuomola, Sanc Coulors, Scott Dowdle, Scott Rising, Sean Hancock, Shane Gleeson, Shane Lynch, Shogun7, ShootTheCore, Sigmund68k, Silvio Samadelli, simon van den bon, Sipan Calli, SJohansson, Smarthuman, Spiff, SteelRush, Stefan Nordkvist, Stephane Tremblay, Stephen Marshall, Stephen Stalcup, Steve Randall, Steven A Rodriguez, Steven Hansen, Steven Hertz, Stuart Dunfield, Super Nicktendo, Sylver, TaylorBat, Thomas Gooddy, Thorias, Tianfeng, Tim, ToastCrust, Todd Gill, Tom Salvo, Tony Shadwick, Trifle, type78, Tyrone Cheng, Ulf Skutnabba, Victor, Víctor Gomariz Ladrón de Guevara, Victor Lindo, Victor Pando, Wes Brown, Will Green, Woof, Xtro, Zoltan Kovacs, ZooKneeKnow, zzBadnusty,
