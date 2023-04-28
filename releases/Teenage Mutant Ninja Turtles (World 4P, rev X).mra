@@ -32,28 +32,28 @@
 	<rom index="0" zip="tmnt.zip" md5="none">
 		<!-- 68k -->
 		<interleave output="16">
-			<part crc="a9549004" name="963-x23.j17"map="01"/>
-			<part crc="e5cc9067" name="963-x24.k17"map="10"/>
+			<part crc="a9549004" name="963-x23.j17" map="01"/>
+			<part crc="e5cc9067" name="963-x24.k17" map="10"/>
 		</interleave>
 		<interleave output="16">
-			<part crc="5789cf92" name="963-x21.j15"map="01"/>
-			<part crc="0a74e277" name="963-x22.k15"map="10"/>
+			<part crc="5789cf92" name="963-x21.j15" map="01"/>
+			<part crc="0a74e277" name="963-x22.k15" map="10"/>
 		</interleave>
 		<!-- Z80 -->
 		<part crc="1692a6d6" name="963e20.g13"/>
 		<!-- Tiles -->
 		<interleave output="32">
-			<part crc="db4769a8" name="963a28.h27"map="2100"/>
-			<part crc="8069cd2e" name="963a29.k27"map="0021"/>
+			<part crc="db4769a8" name="963a28.h27" map="2100"/>
+			<part crc="8069cd2e" name="963a29.k27" map="0021"/>
 		</interleave>
 		<!-- Sprites -->
 		<interleave output="32">
-			<part crc="b5239a44" name="963a17.h4"map="2100"/>
-			<part crc="1f324eed" name="963a15.k4"map="0021"/>
+			<part crc="b5239a44" name="963a17.h4" map="2100"/>
+			<part crc="1f324eed" name="963a15.k4" map="0021"/>
 		</interleave>
 		<interleave output="32">
-			<part crc="dd51adef" name="963a18.h6"map="2100"/>
-			<part crc="d4bd9984" name="963a16.k6"map="0021"/>
+			<part crc="dd51adef" name="963a18.h6" map="2100"/>
+			<part crc="d4bd9984" name="963a16.k6" map="0021"/>
 		</interleave>
 		<!-- k007232 -->
 		<part crc="e2ac3063" name="963a26.c13"/>
