@@ -1,5 +1,106 @@
-set_global_assignment -name VERILOG_FILE rtl/lfsr.v
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/cos.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/mycore.v
-set_global_assignment -name SDC_FILE mycore.sdc
-set_global_assignment -name SYSTEMVERILOG_FILE mycore.sv
+### VERILOG_FILE ###
+
+set_global_assignment -name VERILOG_FILE rtl/audio.v
+set_global_assignment -name VERILOG_FILE rtl/byte_loader.v
+set_global_assignment -name VERILOG_FILE rtl/color.v
+set_global_assignment -name VERILOG_FILE rtl/k007232.v
+set_global_assignment -name VERILOG_FILE rtl/k051937.v
+set_global_assignment -name VERILOG_FILE rtl/k051960.v
+set_global_assignment -name VERILOG_FILE rtl/k051962.v
+set_global_assignment -name VERILOG_FILE rtl/k052109.v
+set_global_assignment -name VERILOG_FILE rtl/k052109_scroll.v
+set_global_assignment -name VERILOG_FILE rtl/k_reg.v
+set_global_assignment -name VERILOG_FILE rtl/planes.v
+set_global_assignment -name VERILOG_FILE rtl/rom_loader_tmnt.v
+set_global_assignment -name VERILOG_FILE rtl/rom_loader_mia.v
+set_global_assignment -name VERILOG_FILE rtl/rom_loader.v
+set_global_assignment -name VERILOG_FILE rtl/SHIFTER.v
+set_global_assignment -name VERILOG_FILE rtl/sprites.v
+set_global_assignment -name VERILOG_FILE rtl/TMNT.v
+
+set_global_assignment -name VERILOG_FILE rtl/cells/a2n.v
+set_global_assignment -name VERILOG_FILE rtl/cells/a4h.v
+set_global_assignment -name VERILOG_FILE rtl/cells/bd3.v
+set_global_assignment -name VERILOG_FILE rtl/cells/C43.v
+set_global_assignment -name VERILOG_FILE rtl/cells/c11.v
+set_global_assignment -name VERILOG_FILE rtl/cells/CNT1.v
+set_global_assignment -name VERILOG_FILE rtl/cells/CNT2.v
+set_global_assignment -name VERILOG_FILE rtl/cells/CNT3.v
+set_global_assignment -name VERILOG_FILE rtl/cells/de2.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fd2.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fd3.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fd4.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fde.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fdg.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fdm.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fdn.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fdo.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fdp.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fdr.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fds.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fjd.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fs1.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fds16bit.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fs2.v
+set_global_assignment -name VERILOG_FILE rtl/cells/fs3.v
+set_global_assignment -name VERILOG_FILE rtl/cells/ltl.v
+set_global_assignment -name VERILOG_FILE rtl/cells/lt4.v
+set_global_assignment -name VERILOG_FILE rtl/cells/t34.v
+set_global_assignment -name VERILOG_FILE rtl/cells/t5a.v
+set_global_assignment -name VERILOG_FILE rtl/cells/t2d.v
+set_global_assignment -name VERILOG_FILE rtl/cells/u24.v
+
+set_global_assignment -name VERILOG_FILE rtl/cpu/cpu_68k.v
+set_global_assignment -name VERILOG_FILE rtl/cpu/cpu_z80.v
+
+### SYSTEMVERILOG_FILE ###
+
+set_global_assignment -name SYSTEMVERILOG_FILE TMNT.sv
+
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/FX68K/fx68k.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/FX68K/fx68kAlu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/FX68K/uaddrPla.sv
+
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/sdram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/sdram_mux.sv
+
+### QIP_FILE ###
+
+set_global_assignment -name QIP_FILE jt51/hdl/jt51.qip
+set_global_assignment -name QIP_FILE jt7759/hdl/jt7759.qip
+
+set_global_assignment -name QIP_FILE rtl/cpu/FX68K/fx68k.qip
+set_global_assignment -name QIP_FILE rtl/cpu/T80/T80.qip
+
+set_global_assignment -name QIP_FILE rtl/memory/ram_k051937_color.qip
+set_global_assignment -name QIP_FILE rtl/memory/ram_k051937_shadow.qip
+set_global_assignment -name QIP_FILE rtl/memory/ram_k051960.qip
+set_global_assignment -name QIP_FILE rtl/memory/ram_main.qip
+set_global_assignment -name QIP_FILE rtl/memory/ram_pal.qip
+set_global_assignment -name QIP_FILE rtl/memory/ram_sprites.qip
+set_global_assignment -name QIP_FILE rtl/memory/ram_tiles.qip
+set_global_assignment -name QIP_FILE rtl/memory/ram_z80.qip
+
+set_global_assignment -name QIP_FILE rtl/memory/rom_dec.qip
+set_global_assignment -name QIP_FILE rtl/memory/rom_k007232.qip
+set_global_assignment -name QIP_FILE rtl/memory/rom_main.qip
+set_global_assignment -name QIP_FILE rtl/memory/rom_prio.qip
+set_global_assignment -name QIP_FILE rtl/memory/rom_theme.qip
+set_global_assignment -name QIP_FILE rtl/memory/rom_uPD7759C.qip
+set_global_assignment -name QIP_FILE rtl/memory/rom_z80.qip
+
+set_global_assignment -name QIP_FILE sys/sys.qip
+
+### VHDL_FILE ###
+
+set_global_assignment -name VHDL_FILE rtl/cpu/T80/T80s.vhd
+set_global_assignment -name VHDL_FILE rtl/cpu/T80/T80pa.vhd
+set_global_assignment -name VHDL_FILE rtl/cpu/T80/T80_Reg.vhd
+set_global_assignment -name VHDL_FILE rtl/cpu/T80/T80_Pack.vhd
+set_global_assignment -name VHDL_FILE rtl/cpu/T80/T80_MCode.vhd
+set_global_assignment -name VHDL_FILE rtl/cpu/T80/T80_ALU.vhd
+set_global_assignment -name VHDL_FILE rtl/cpu/T80/T80.vhd
+
+### SDC_FILE ###
+
+set_global_assignment -name SDC_FILE TMNT.sdc

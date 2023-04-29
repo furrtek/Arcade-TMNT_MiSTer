@@ -370,7 +370,7 @@ always @(*) begin
 		10'b11_101z_zzzz: m68k_din <= is_tmnt ? m68k_rom_dout : m68k_ram_A_dout;
 		10'b11_011z_zzzz: m68k_din <= m68k_ram_B_dout;
 		10'b10_111z_zzzz: m68k_din <= {8'h00, pal_dout};
-		
+
 		10'b11_1110_zzzz: m68k_din <= {12'h000, dipswitch3};
 
 		10'b11_1111_0100: m68k_din <= {8'h00, dipswitch1};
@@ -378,12 +378,11 @@ always @(*) begin
 		10'b11_1111_0110: m68k_din <= is_tmnt ? {8'h00, inputs_P4} : 16'h00FF;
 		10'b11_1111_0111: m68k_din <= 16'h00FF;
 
-		10'b11_1111_1000: m68k_din <= is_tmnt ? {8'h00, inputs_service, inputs_coin} :
-															{8'h00, 1'b1, inputs_service[0], 1'b1, inputs_P2[7], inputs_P1[7], 1'b1, inputs_coin[1:0]};
+		10'b11_1111_1000: m68k_din <= is_tmnt ? {8'h00, inputs_service, inputs_coin} : {8'h00, 1'b1, inputs_service[0], 1'b1, inputs_P2[7], inputs_P1[7], 1'b1, inputs_coin[1:0]};
 		10'b11_1111_1001: m68k_din <= {8'h00, inputs_P1};
 		10'b11_1111_1010: m68k_din <= {8'h00, inputs_P2};
 		10'b11_1111_1011: m68k_din <= is_tmnt ? {8'h00, inputs_P3} : 16'h00FF;
-		
+
 		10'b0z_zzzz_zzzz: m68k_din <= {2{k007644_reg}};
 
 		default: m68k_din <= 16'h0000;
