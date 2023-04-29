@@ -36,7 +36,7 @@
 			<dip name="Unused" bits="19" ids="On,Off"/>
 	</switches>
 
-	<buttons names="Attack,Jump,-,Start,Coin,Service" default="A,B,X,Start,Select,L"/>
+	<buttons names="Jump,Attack-,Start,Coin,Service" default="A,B,X,Start,Select,L"/>
 
 	<rom index="1">
 		<part>01</part>		<!-- Title number 1: TMNT -->
