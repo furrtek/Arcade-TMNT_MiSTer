@@ -23,9 +23,10 @@ module tmnt
 	input reset,
 	input clk_sys,				// 96MHz
 	input [3:0] tno,
-	
+
 	input CPU_RUN,				// DEBUG
-	
+	input pause,
+
 	input load_en,				// ROM loading from HPS
 	input rom_z80_we,
 	input rom_prom1_we,
@@ -34,16 +35,16 @@ module tmnt
 	input rom_uPD7759C_we,
 	input [15:0] rom_data,
 	input [25:0] rom_addr,
-	
+
 	output ce_pix,				// Pixel clock enable
-	
+
 	input [7:0] inputs_P1,
 	input [7:0] inputs_P2,
 	input [7:0] inputs_P3,
 	input [7:0] inputs_P4,
 	input [3:0] inputs_coin,
 	input [3:0] inputs_service,
-	
+
 	output reg [1:0] coin_counter,
 
 	output [5:0] video_r,
@@ -53,16 +54,16 @@ module tmnt
 	input [7:0] dipswitch1,
 	input [7:0] dipswitch2,
 	input [3:0] dipswitch3,
-	
+
 	output NCBLK,
 	output NHBK,
 	output NHSY,
 	output NVSY,
-	
+
 	output tiles_rom_req,
 	output [17:0] tiles_rom_addr,
 	input [31:0] tiles_rom_dout,
-	
+
 	output spr_rom_req,
 	output [18:0] spr_rom_addr,
 	input [31:0] spr_rom_dout,
@@ -70,13 +71,13 @@ module tmnt
 	output theme_rom_req,
 	output [17:0] theme_rom_addr,
 	input [31:0] theme_rom_dout,
-	
+
 	output reg m68k_rom_req,
 	output [17:0] m68k_rom_addr,
 	input [15:0] m68k_rom_dout,
-	
+
 	output signed [15:0] audio_mono,
-	
+
 	input sdram_dtack
 );
 
@@ -98,7 +99,7 @@ always @(posedge clk_sys or posedge reset) begin
 		ce_main_sr <= 4'd1;
 		ce_pix_sr <= 16'd1;
 		rom_req_sr <= 32'd1;
-		
+
 		ce_snd_cnt <= 12'd0;
 		ce_snd_p <= 1'b0;
 		ce_snd_n <= 1'b0;
@@ -113,7 +114,7 @@ always @(posedge clk_sys or posedge reset) begin
 		if (ce_snd_cnt >= 12'd1676) begin
 			ce_snd_div <= ce_snd_div + 1'b1;
 			ce_snd_cnt <= ce_snd_cnt - 12'd1676 + 12'd125;
-			
+
 			ce_snd_p <= ce_snd_div[0];
 			ce_snd_n <= ~ce_snd_div[0];
 			ce_snd_half <= &{ce_snd_div};
@@ -230,8 +231,10 @@ assign VBLK = ~NVBLK;
 always @(posedge VBLK or negedge INT16EN) begin
 	if (!INT16EN)
 		OIPL <= 1'b1;
-	else
+	else begin
 		OIPL <= 1'b0;
+		if( pause ) OIPL <= 1;
+	end
 end
 
 wire [23:1] m68k_addr_pre;
@@ -454,38 +457,38 @@ planes PLANES(
 	.is_tmnt(is_tmnt),
 	.P2H(P2H),
 	.V6M(V6M),
-	
+
 	.RMRD(RMRD),
 	.VRAMCS(VRAMCS),
 	.PDS(PDS),
 	.NREAD(NREAD),
 	.VDTAC(VDTAC),
-	
+
 	.DB_IN(DB_IN),
 	.m68k_addr_16(m68k_addr[16]),
 	.AB(m68k_addr[15:1]),
 	.nUDS(nUDS),
-	
+
 	.DB_OUT_k052109(DB_OUT_k052109),
 	.DBDIR_k052109(DBDIR_k052109),
 	.DB_OUT_k051962(DB_OUT_k051962),
 	.DBDIR_k051962(DBDIR_k051962),
-	
+
 	.HVOT(HVOT),
 	.VA(VA),
 	.VB(VB),
 	.FX(FX),
-	
+
 	.NVA(NVA),
 	.NVB(NVB),
 	.NFX(NFX),
-	
+
 	.NVBLK(NVBLK),
 	.NCBLK(NCBLK),
 	.NHSY(NHSY),
 	.NVSY(NVSY),
 	.NHBK(NHBK),
-	
+
 	.tiles_rom_addr(tiles_rom_addr),
 	.tiles_rom_dout(tiles_rom_dout)
 );
@@ -496,33 +499,33 @@ sprites SPRITES(
 	.clken(ce_main),
 	.is_tmnt(is_tmnt),
 	.P2H(P2H),
-	
+
 	.rom_prom1_we(rom_prom1_we),
 	.load_en(load_en),
 	.rom_data(rom_data),
 	.rom_addr(rom_addr),
-	
+
 	.OBJCS(OBJCS),
 	.PDS(PDS),
 	.NREAD(NREAD),
 	.PE(PE),
-	
+
 	.HVOT(HVOT),
-	
+
 	.DB_IN(DB_IN),
 	.AB(m68k_addr[15:1]),
 	.nUDS(nUDS),
-	
+
 	.DB_OUT_k051960(DB_OUT_k051960),
 	.DBDIR_k051960(DBDIR_k051960),
 	.DB_OUT_k051937(DB_OUT_k051937),
 	.DBDIR_k051937(DBDIR_k051937),
-	
+
 	.SHA(SHA), .NOBJ(NOBJ),
 	.OB(OB),
-	
+
 	.ODTAC(ODTAC),
-	
+
 	.spr_rom_addr(spr_rom_addr),
 	.spr_rom_dout(spr_rom_dout)
 );
@@ -574,10 +577,10 @@ TMNTAudio audio(
 	.theme_rom_req(theme_rom_req),
 	.theme_rom_addr(theme_rom_addr),
 	.theme_rom_dout(theme_rom_dout),
-	
+
 	.SNDON(SNDON),
 	.SNDDT(SNDDT),
-	
+
 	.mixdown(audio_mono)
 );
 

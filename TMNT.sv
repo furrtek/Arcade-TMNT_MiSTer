@@ -78,7 +78,7 @@
 // Self test display incorrect, sometimes filled with the same tile with 1-pixel wide lines, more
 // rarely with what looks to be the self-test results but with the wrong tiles.
 // CPU writes to tilemap but 052109 doesn't assert RWEs (tilemap ram WEs).
-// Fixed: was caused by async clock in k052109 registering DB_IN too late, fixed by delaying the change of 
+// Fixed: was caused by async clock in k052109 registering DB_IN too late, fixed by delaying the change of
 // DB_IN, see DB_IN_del in TMNT.v
 
 // Fixed 68k crash when loading the core via the MiSTer menu (not by JTAG): caused by the absence of
@@ -505,6 +505,7 @@ module emu
 );
 
 wire signed [15:0] audio_mono;
+wire               pause;
 
 ///////// Default values for ports not used in this core /////////
 
@@ -512,7 +513,7 @@ assign ADC_BUS  = 'Z;
 assign USER_OUT = '1;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
-assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
+assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;
 
 assign VGA_SL = 0;
 assign VGA_F1 = 0;
@@ -536,8 +537,8 @@ assign VIDEO_ARY = 12'd3;
 `include "build_id.v"
 
 // Status Bit Map:
-//             Upper                             Lower              
-// 0         1         2         3          4         5         6   
+//             Upper                             Lower
+// 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
 // X        T
@@ -546,15 +547,17 @@ localparam CONF_STR = {
 	"TMNT;;",
 	"-;",
 	"DIP;",
+	"O1,Pause,Off,On;",
 	//"O9,CPU,RUN,STOP;",	// DEBUG
 	"T0,Reset;",
 	"J1,A,B,C,Start,Coin,Service;",
 	"R0,Reset and close OSD;",
 	"DEFMRA,tmnt.mra;",
-	"V,v",`BUILD_DATE 
+	"V,v",`BUILD_DATE
 };
 
 assign CPU_RUN = 1'b1;	//~status[9];	// DEBUG
+assign pause = status[1];
 
 wire forced_scandoubler;
 wire [1:0] buttons;
@@ -582,14 +585,14 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 
 	.buttons,
 	.status,
-	
+
 	.ps2_key,
-	
+
 	.joystick_0,
 	.joystick_1,
 	.joystick_2,
 	.joystick_3,
-	
+
     // ARM -> FPGA download
 	.ioctl_download,
 	.ioctl_index,
@@ -597,7 +600,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 	.ioctl_addr,         // In WIDE mode address is incremented by 2
 	.ioctl_dout,
 	.ioctl_wait,
-	
+
 	.sdram_sz
 );
 
@@ -636,7 +639,7 @@ rom_loader LOADER(
 	.ioctl_dout,
 	.ioctl_wr,
 	.tno,
-	
+
 	.rom_68k_we,
 	.rom_z80_we,
 	.rom_prom1_we,
@@ -646,7 +649,7 @@ rom_loader LOADER(
 	.rom_theme_we,
 	.rom_007232_we,
 	.rom_uPD7759C_we,
-	
+
 	.rom_addr,	// Word-based for 16-bit ROMs
 	.rom_data
 );
@@ -700,11 +703,11 @@ sdram_mux SDRAM_MUX(
 	.tiles_rom_req(tiles_rom_req),
 	.tiles_rom_addr,
 	.tiles_rom_data(tiles_rom_dout),
-	
+
 	.theme_rom_req(theme_rom_req),
 	.theme_rom_addr,
 	.theme_rom_data(theme_rom_dout),
-	
+
 	.m68k_rom_req(m68k_rom_req),
 	.m68k_rom_addr,
 	.m68k_rom_data(m68k_rom_dout),
@@ -722,7 +725,7 @@ sdram_mux SDRAM_MUX(
 	.SDRAM_BURST,
 	.SDRAM_BS,
 	.SDRAM_READY(sdram_ready),
-	
+
 	.sdram_dtack(sdram_dtack)
 );
 
@@ -779,22 +782,23 @@ tmnt mycore
 	.reset(reset),
 	.clk_sys(clk_sys),	// 96MHz
 	.tno(tno),
-	
+
 	.CPU_RUN(CPU_RUN),
-	
+
 	.load_en((ioctl_index == 16'd0) & ioctl_download),
-	
+
 	.rom_z80_we,
 	.rom_prom1_we,
 	.rom_prom2_we,
 	.rom_007232_we,
 	.rom_uPD7759C_we,
-	
+
 	.rom_addr,
 	.rom_data,
 
 	.ce_pix,
-	
+	.pause,
+
 	.spr_rom_req,
 	.tiles_rom_req,
 
@@ -802,45 +806,45 @@ tmnt mycore
 	.NHBK,
 	.NHSY,
 	.NVSY,
-	
+
 	// Start, Attack 3, Attack 2, Attack 1, Down, Up, Right, Left
 	.inputs_P1(~{joystick_0[7:4], joystick_0[2], joystick_0[3], joystick_0[0], joystick_0[1]}),
 	.inputs_P2(~{joystick_1[7:4], joystick_1[2], joystick_1[3], joystick_1[0], joystick_1[1]}),
 	.inputs_P3(~{joystick_2[7:4], joystick_2[2], joystick_2[3], joystick_2[0], joystick_2[1]}),
 	.inputs_P4(~{joystick_3[7:4], joystick_3[2], joystick_3[3], joystick_3[0], joystick_3[1]}),
-	
+
 	.inputs_coin(~{joystick_3[8], joystick_2[8], joystick_1[8], joystick_0[8]}),
 	.inputs_service(~{joystick_3[9], joystick_2[9], joystick_1[9], joystick_0[9]}),
-	
+
 	// DEBUG
 	/*.dipswitch1(8'b11111100),	// DIPs: coinage settings
 	.dipswitch2(8'b01111100),	// DIPs: attract mode sound on, easy, 5 lives
 	.dipswitch3(4'b1111),*/		// DIPs: normal display, game mode
-	
+
 	.dipswitch1(dips[0]),
 	.dipswitch2(dips[1]),
 	.dipswitch3(dips[2]),
-	
+
 	.video_r,
 	.video_g,
 	.video_b,
-	
+
 	.tiles_rom_addr,
 	.tiles_rom_dout,
-	
+
 	.spr_rom_addr,
 	.spr_rom_dout,
-	
+
 	.theme_rom_req,
 	.theme_rom_addr,
 	.theme_rom_dout,
-	
+
 	.m68k_rom_req,
 	.m68k_rom_addr,
 	.m68k_rom_dout,
-	
+
 	.audio_mono,
-	
+
 	.sdram_dtack(sdram_dtack)
 );
 
