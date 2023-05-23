@@ -23,27 +23,27 @@
 
 module k051937 (
 	input clk_96M,	// DEBUG for delays
-	
+
 	input nRES,
 	input clk_24M,
 
 	output P1H,
 	output P2H,
-	
+
 	input HVIN,
 	output HVOT,
-	
+
 	input NRD, OBCS,
-	
+
 	input [2:0] AB,
 	input AB10,
-	
+
 	output reg [7:0] DB_OUT,
 	input [7:0] DB_IN,
-	
+
 	output NCSY, NVSY, NHSY,
 	output NCBK, NVBK, NHBK,
-	
+
 	output SHAD, NCO0, PCOF,
 	output [11:0] OB,
 
@@ -52,14 +52,14 @@ module k051937 (
 	input [7:0] CD1,
 	input [7:0] CD2,
 	input [7:0] CD3,
-	
+
 	output [3:0] CAW,
 
 	input [7:0] OC,
 	input [8:0] HP,
-	
+
 	input CARY, LACH, HEND, OREG, OHF,
-	
+
 	output DB_DIR
 );
 
@@ -332,10 +332,10 @@ assign SHAD = ^{AL196_Q, REG1[0]};
 assign AK112 = PAL_LATCH1[7] | REG1[1];
 
 
-assign SHADOWA = &{REG1[2], AK112, &{PIXELA}};
+assign SHADOWA = &{~REG1[2], AK112, &{PIXELA}};
 FDM AJ55(clk_12M, SHADOWA, AJ55_Q);
 
-assign SHADOWB = &{REG1[2], AK112, &{PIXELB}};
+assign SHADOWB = &{~REG1[2], AK112, &{PIXELB}};
 FDM AJ135(clk_12M, SHADOWB, AJ135_Q);
 
 FDM AH65(AJ1, &{AJ55_Q, PAIR}, RAM_C_DIN);
@@ -386,7 +386,7 @@ assign WE_MUX = PAIR ? {AM128, PXH[0], AL89, PXH[0], AL79, PXH[0], AL77, PXH[0]}
 reg [7:0] WE_MUX_REG;
 always @(posedge clk_12M)
 	WE_MUX_REG <= WE_MUX;
-	
+
 reg [3:0] WE_MUX_REG_A;
 reg [3:0] WE_MUX_REG_B;
 always @(posedge AM12)
