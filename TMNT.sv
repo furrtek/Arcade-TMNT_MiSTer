@@ -608,7 +608,11 @@ initial dips[1] = 8'b11111100;
 initial dips[2] = 4'b1111;
 always @(posedge clk_sys) begin
 	if (ioctl_wr && (ioctl_index == 254) && !ioctl_addr[26:2])
-		dips[ioctl_addr[1:0]] <= ioctl_dout[7:0];
+		if (~ioctl_addr[1]) begin
+			{ dips[1], dips[0] } <= ioctl_dout[15:0];
+		end else begin
+			dips[2] <= ioctl_dout[7:0];
+		end
 end
 
 // Retrieve Title No.
