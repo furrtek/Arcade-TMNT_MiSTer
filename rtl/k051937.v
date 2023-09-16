@@ -487,12 +487,18 @@ always @(posedge clk_12M or negedge nRES) begin
 end
 assign AP134 = ~AN15_DELAY[4];
 
+// Hack needed to switch render buffers at the correct time.
+// nNEW_LINE is already delayed by 8 pixels compared to the 51960
+// and the added delays below result in the buffers switching too late.
+wire nNEW_LINE_PRE = ~(PXH[8:0] == 9'd407); // 8 pixels earlier
+
 reg [6:0] NEWLINE_DELAY;
 always @(posedge clk_6M or negedge nRES) begin
 	if (!nRES) begin
 		NEWLINE_DELAY <= 7'b0000000;
 	end else begin
-		NEWLINE_DELAY <= {NEWLINE_DELAY[5:0], nNEW_LINE};
+		//NEWLINE_DELAY <= {NEWLINE_DELAY[5:0], nNEW_LINE};
+		NEWLINE_DELAY <= {NEWLINE_DELAY[5:0], nNEW_LINE_PRE};
 	end
 end
 assign AN15_Q = NEWLINE_DELAY[6];
