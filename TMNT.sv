@@ -514,7 +514,6 @@ assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
-assign VGA_SL = 0;
 assign VGA_F1 = 0;
 assign VGA_SCALER = 0;
 assign HDMI_FREEZE = 0;
@@ -530,9 +529,6 @@ assign BUTTONS = 0;
 
 //////////////////////////////////////////////////////////////////
 
-assign VIDEO_ARX = 12'd4;
-assign VIDEO_ARY = 12'd3;
-
 `include "build_id.v"
 
 // Status Bit Map:
@@ -545,11 +541,19 @@ assign VIDEO_ARY = 12'd3;
 localparam CONF_STR = {
 	"TMNT;;",
 	"-;",
+	"O[2:1],Aspect Ratio,Original,Full Screen,[ARC1],[ARC2];",
+	"O[5:3],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+	"-;",
+	"d0O[6],Vertical Crop,Disabled,216p(5x);",
+	"d0O[10:7],Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;",
+	"O[12:11],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
+	"-;",
 	"DIP;",
+	"-;",
+	"O[15],Pause,Off,On;",
 	//"O9,CPU,RUN,STOP;",	// DEBUG
-	"T0,Reset;",
+	"R0,Reset;",
 	"J1,A,B,C,Start,Coin,Service;",
-	"R0,Reset and close OSD;",
 	"DEFMRA,tmnt.mra;",
 	"V,v",`BUILD_DATE 
 };
@@ -570,18 +574,21 @@ wire [26:0] ioctl_addr;
 wire [15:0] sdram_sz;		// TODO: Use this to know if there's enough SDRAM installed
 wire ioctl_download, ioctl_wr, ioctl_wait;
 
+wire [21:0] gamma_bus;
+
 hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 (
 	.clk_sys,
 	.HPS_BUS,
 	.EXT_BUS(),
-	.gamma_bus(),
+	.gamma_bus(gamma_bus),
 
 	.conf_str(CONF_STR),
 	.forced_scandoubler,
 
 	.buttons,
 	.status,
+	.status_menumask({en216p}),
 	
 	.ps2_key,
 	
@@ -771,8 +778,7 @@ sdram ram1(
 
 //////////////////////////////////////////////////////////////////
 
-wire HSync;
-wire VSync;
+wire NHBK, NVBLK, NHSY, NVSY;
 wire ce_pix;
 wire [5:0] video_r;
 wire [5:0] video_g;
@@ -785,6 +791,7 @@ tmnt mycore
 	.tno(tno),
 	
 	.CPU_RUN(CPU_RUN),
+	.pause(status[15]),
 	
 	.load_en((ioctl_index == 16'd0) & ioctl_download),
 	
@@ -802,10 +809,10 @@ tmnt mycore
 	.spr_rom_req,
 	.tiles_rom_req,
 
-	.NCBLK,
-	.NHBK,
-	.NHSY,
-	.NVSY,
+	.NHBK(NHBK),
+	.NVBLK(NVBLK),
+	.NHSY(NHSY),
+	.NVSY(NVSY),
 	
 	// Start, Attack 3, Attack 2, Attack 1, Down, Up, Right, Left
 	.inputs_P1(~{joystick_0[7:4], joystick_0[2], joystick_0[3], joystick_0[0], joystick_0[1]}),
@@ -849,30 +856,75 @@ tmnt mycore
 );
 
 assign CLK_VIDEO = clk_sys;
-assign CE_PIXEL = ce_pix;
 
 assign LED_USER = 1'b0;
 
-video_cleaner VC(
-	.clk_vid(clk_sys),
+wire [1:0] ar       = status[2:1];
+wire       vcrop_en = status[6];
+wire [3:0] vcopt    = status[10:7];
+reg        en216p;
+reg  [4:0] voff;
+always @(posedge CLK_VIDEO) begin
+	en216p <= ((HDMI_WIDTH == 1920) && (HDMI_HEIGHT == 1080) && !forced_scandoubler && !scale);
+	voff <= (vcopt < 6) ? {vcopt,1'b0} : ({vcopt,1'b0} - 5'd24);
+end
+
+wire vga_de;
+video_freak video_freak
+(
+	.CLK_VIDEO(CLK_VIDEO),
+	.CE_PIXEL(CE_PIXEL),
+	.VGA_VS(VGA_VS),
+	.HDMI_WIDTH(HDMI_WIDTH),
+	.HDMI_HEIGHT(HDMI_HEIGHT),
+	.VGA_DE_IN(vga_de),
+	.ARX((!ar) ? 12'd4 : (ar - 1'd1)),
+	.ARY((!ar) ? 12'd3 : 12'd0),
+	.CROP_SIZE((en216p & vcrop_en) ? 10'd216 : 10'd0),
+	.CROP_OFF(voff),
+	.SCALE(status[12:11]),
+	.VGA_DE(VGA_DE),
+	.VIDEO_ARX(VIDEO_ARX),
+	.VIDEO_ARY(VIDEO_ARY)
+
+);
+
+wire [2:0] scale = status[5:3];
+wire [2:0] sl = scale ? scale - 1'd1 : 3'd0;
+wire       scandoubler = (scale || forced_scandoubler);
+
+assign VGA_SL = sl[1:0];
+
+video_mixer #(.LINE_LENGTH(320), .GAMMA(1)) video_mixer
+(
+	.CLK_VIDEO(CLK_VIDEO),
+	.CE_PIXEL(CE_PIXEL),
+
 	.ce_pix(ce_pix),
 
-	.R({video_r, video_r[1:0]}),
-	.G({video_g, video_g[1:0]}),
-	.B({video_b, video_b[1:0]}),
+	.scandoubler(scandoubler),
+	.hq2x(scale==1),
+
+	.gamma_bus(gamma_bus),
+
+	.R({video_r, video_r[5:4]}),
+	.G({video_g, video_g[5:4]}),
+	.B({video_b, video_b[5:4]}),
 
 	.HSync(~NHSY),
 	.VSync(~NVSY),
 	.HBlank(~NHBK),
-	.VBlank(~NCBLK),
+	.VBlank(~NVBLK),
 
-	// video output signals
-	.VGA_R,
-	.VGA_G,
-	.VGA_B,
-	.VGA_VS,
-	.VGA_HS,
-	.VGA_DE
+	.HDMI_FREEZE(),
+	.freeze_sync(),
+
+	.VGA_R(VGA_R),
+	.VGA_G(VGA_G),
+	.VGA_B(VGA_B),
+	.VGA_VS(VGA_VS),
+	.VGA_HS(VGA_HS),
+	.VGA_DE(vga_de)
 );
 
 endmodule
