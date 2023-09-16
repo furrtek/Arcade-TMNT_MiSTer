@@ -548,9 +548,12 @@ localparam CONF_STR = {
 	"d0O[10:7],Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;",
 	"O[12:11],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
 	"-;",
+	"O[16:13],CRT H adjust,0,+1,+2,+3,+4,+5,+6,+7,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"O[20:17],CRT V adjust,0,+1,+2,+3,+4,+5,+6,+7,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"-;",
 	"DIP;",
 	"-;",
-	"O[15],Pause,Off,On;",
+	"O[21],Pause,Off,On;",
 	//"O9,CPU,RUN,STOP;",	// DEBUG
 	"R0,Reset;",
 	"J1,A,B,C,Start,Coin,Service;",
@@ -575,6 +578,9 @@ wire [15:0] sdram_sz;		// TODO: Use this to know if there's enough SDRAM install
 wire ioctl_download, ioctl_wr, ioctl_wait;
 
 wire [21:0] gamma_bus;
+
+wire [3:0] hs_offset = status[16:13];
+wire [3:0] vs_offset = status[20:17];
 
 hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 (
@@ -791,7 +797,7 @@ tmnt mycore
 	.tno(tno),
 	
 	.CPU_RUN(CPU_RUN),
-	.pause(status[15]),
+	.pause(status[21]),
 	
 	.load_en((ioctl_index == 16'd0) & ioctl_download),
 	
@@ -859,6 +865,20 @@ assign CLK_VIDEO = clk_sys;
 
 assign LED_USER = 1'b0;
 
+wire HSync, VSync;
+jtframe_resync resync(
+	.clk(CLK_VIDEO),
+	.pxl_cen(ce_pix),
+	.hs_in(~NHSY),
+	.vs_in(~NVSY),
+	.LVBL(~NVBLK),
+	.LHBL(~NHBK),
+	.hoffset(hs_offset),
+	.voffset(vs_offset),
+	.hs_out(HSync),
+	.vs_out(VSync)
+);
+
 wire [1:0] ar       = status[2:1];
 wire       vcrop_en = status[6];
 wire [3:0] vcopt    = status[10:7];
@@ -911,8 +931,8 @@ video_mixer #(.LINE_LENGTH(320), .GAMMA(1)) video_mixer
 	.G({video_g, video_g[5:4]}),
 	.B({video_b, video_b[5:4]}),
 
-	.HSync(~NHSY),
-	.VSync(~NVSY),
+	.HSync(HSync),
+	.VSync(VSync),
 	.HBlank(~NHBK),
 	.VBlank(~NVBLK),
 
