@@ -47,9 +47,9 @@ module tmnt
 	
 	output reg [1:0] coin_counter,
 
-	output [5:0] video_r,
-	output [5:0] video_g,
-	output [5:0] video_b,
+	output [7:0] video_r,
+	output [7:0] video_g,
+	output [7:0] video_b,
 
 	input [7:0] dipswitch1,
 	input [7:0] dipswitch2,

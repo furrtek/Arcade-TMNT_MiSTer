@@ -785,11 +785,14 @@ sdram ram1(
 
 //////////////////////////////////////////////////////////////////
 
-wire NHBK, NVBLK, NHSY, NVSY;
+wire NHBK, NVBLK;
+wire HBlank = ~NHBK;
+wire VBlank = ~NVBLK;
+
 wire ce_pix;
-wire [5:0] video_r;
-wire [5:0] video_g;
-wire [5:0] video_b;
+wire [7:0] video_r;
+wire [7:0] video_g;
+wire [7:0] video_b;
 
 tmnt mycore
 (
@@ -818,8 +821,8 @@ tmnt mycore
 
 	.NHBK(NHBK),
 	.NVBLK(NVBLK),
-	.NHSY(NHSY),
-	.NVSY(NVSY),
+	.NHSY(),
+	.NVSY(),
 	
 	// Start, Attack 3, Attack 2, Attack 1, Down, Up, Right, Left
 	.inputs_P1(~{joystick_0[7:4], joystick_0[2], joystick_0[3], joystick_0[0], joystick_0[1]}),
@@ -866,19 +869,32 @@ assign CLK_VIDEO = clk_sys;
 
 assign LED_USER = 1'b0;
 
-wire HSync, VSync;
-jtframe_resync resync(
-	.clk(CLK_VIDEO),
-	.pxl_cen(ce_pix),
-	.hs_in(~NHSY),
-	.vs_in(~NVSY),
-	.LVBL(~NVBLK),
-	.LHBL(~NHBK),
-	.hoffset(hs_offset),
-	.voffset(vs_offset),
-	.hs_out(HSync),
-	.vs_out(VSync)
-);
+reg HSync, VSync;
+reg [7:0] hb_cnt, vb_cnt;
+always @(posedge CLK_VIDEO) begin
+	if (~HBlank) begin
+		hb_cnt <= 0;
+	end else if (ce_pix) begin
+		hb_cnt <= hb_cnt + 1'b1;
+		if (hb_cnt == (8'd9 + $signed(hs_offset))) begin
+			HSync <= 1;
+			if (vb_cnt == (8'd14        + $signed(vs_offset))) VSync <= 1;
+			if (vb_cnt == (8'd14 + 8'd3 + $signed(vs_offset))) VSync <= 0;
+		end
+
+		if (hb_cnt == (8'd9 + 8'd28 + $signed(hs_offset))) begin
+			HSync <= 0;
+			if (VBlank) begin
+				vb_cnt <= vb_cnt + 1'b1;
+			end
+		end
+	end
+
+	if (~VBlank) begin
+		vb_cnt <= 0;
+	end
+
+end
 
 wire [1:0] ar       = status[2:1];
 wire       vcrop_en = status[6];
@@ -928,14 +944,14 @@ video_mixer #(.LINE_LENGTH(320), .GAMMA(1)) video_mixer
 
 	.gamma_bus(gamma_bus),
 
-	.R({video_r, video_r[5:4]}),
-	.G({video_g, video_g[5:4]}),
-	.B({video_b, video_b[5:4]}),
+	.R(video_r),
+	.G(video_g),
+	.B(video_b),
 
 	.HSync(HSync),
 	.VSync(VSync),
-	.HBlank(~NHBK),
-	.VBlank(~NVBLK),
+	.HBlank(HBlank),
+	.VBlank(VBlank),
 
 	.HDMI_FREEZE(HDMI_FREEZE),
 	.freeze_sync(),

@@ -32,9 +32,9 @@ module TMNTColor(
 	input NREAD,
 	input [7:0] CPU_DIN,
 	output [7:0] CPU_DOUT,
-	output [5:0] RED_OUT,
-	output [5:0] GREEN_OUT,
-	output [5:0] BLUE_OUT
+	output [7:0] RED_OUT,
+	output [7:0] GREEN_OUT,
+	output [7:0] BLUE_OUT
 );
 
 	// Color data CD[9:0], NCBLK and SHADOW latched by V6M
@@ -52,6 +52,7 @@ module TMNTColor(
 	wire [4:0] RED;
 	wire [4:0] GREEN;
 	wire [4:0] BLUE;
+	wire [7:0] RED8, GREEN8, BLUE8;
 	wire [15:0] I;
 	
 	always @(posedge V6M)
@@ -93,8 +94,12 @@ module TMNTColor(
 	assign GREEN = COL[15] ? COL[9:5] : 5'd0;
 	assign BLUE = COL[15] ? COL[14:10] : 5'd0;
 	
-	assign RED_OUT = C_REG[12] ? {RED, RED[0]} : {1'b0, RED};
-	assign GREEN_OUT = C_REG[12] ? {GREEN, GREEN[0]} : {1'b0, GREEN};
-	assign BLUE_OUT = C_REG[12] ? {BLUE, BLUE[0]} : {1'b0, BLUE};
+	assign RED8   = {RED, RED[4:2]};
+	assign GREEN8 = {GREEN, GREEN[4:2]};
+	assign BLUE8  = {BLUE, BLUE[4:2]};//
+
+	assign RED_OUT = C_REG[12] ? RED8 : ({1'b0, RED8[7:1]} + {2'b00, RED8[7:2]});
+	assign GREEN_OUT = C_REG[12] ? GREEN8 : ({1'b0, GREEN8[7:1]} + {2'b00, GREEN8[7:2]});
+	assign BLUE_OUT = C_REG[12] ? BLUE8 : ({1'b0, BLUE8[7:1]} + {2'b00, BLUE8[7:2]});
 	
 endmodule
