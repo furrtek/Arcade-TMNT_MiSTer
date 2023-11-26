@@ -241,7 +241,7 @@ module planes(
 		
 		.ZA1H(ZA1H), .ZA2H(ZA2H), .ZA4H(ZA4H),	// From k052109
 		.ZB1H(ZB1H), .ZB2H(ZB2H), .ZB4H(ZB4H),	// From k052109
-		.COL(is_tmnt ? {COL[7:5], 5'b00000} : {COL[7:4], 3'b000, COL[2]}),	// From k052109 (partially) - Only 3 bits used for tile palette selection
+		.COL(is_tmnt ? {COL[7:5], 5'b00000} : {COL[7:4], 1'b0, COL[2], 2'b00}),	// From k052109 (partially) - Only 3 bits used for tile palette selection
 		
 		.VC(tiles_rom_planar),		// GFX ROM data
 		

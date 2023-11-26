@@ -25,6 +25,7 @@ module tmnt
 	input [3:0] tno,
 	
 	input CPU_RUN,				// DEBUG
+	input pause,
 	
 	input load_en,				// ROM loading from HPS
 	input rom_z80_we,
@@ -46,9 +47,9 @@ module tmnt
 	
 	output reg [1:0] coin_counter,
 
-	output [5:0] video_r,
-	output [5:0] video_g,
-	output [5:0] video_b,
+	output [7:0] video_r,
+	output [7:0] video_g,
+	output [7:0] video_b,
 
 	input [7:0] dipswitch1,
 	input [7:0] dipswitch2,
@@ -56,6 +57,7 @@ module tmnt
 	
 	output NCBLK,
 	output NHBK,
+	output NVBLK,
 	output NHSY,
 	output NVSY,
 	
@@ -160,7 +162,6 @@ reg PRI, PRI2;
 wire SHA;
 wire NFX, NOBJ, NVB, NVA;	// Pixel opaque signals (active high)
 wire ODTAC, VDTAC;			// DTACKs from sprite and plane chips
-wire NVBLK;
 
 wire [7:0] prio_addr;
 wire [7:0] prio_dout;
@@ -230,8 +231,10 @@ assign VBLK = ~NVBLK;
 always @(posedge VBLK or negedge INT16EN) begin
 	if (!INT16EN)
 		OIPL <= 1'b1;
-	else
+	else begin
 		OIPL <= 1'b0;
+		if( pause ) OIPL <= 1;
+	end
 end
 
 wire [23:1] m68k_addr_pre;
